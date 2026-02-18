@@ -25,7 +25,6 @@ namespace SPTR
 		T* ptr_ = nullptr;
 		bool isAllocated_ = false;
 
-		bool isTypeValid() const;
 		void allocateMemory();
 
 	public:
@@ -58,25 +57,6 @@ namespace SPTR
 	UniquePtr<T[]> makeUnique(std::initializer_list<T> init);
 
 	template<typename T>
-	bool UniquePtr<T>::isTypeValid() const
-	{
-		// Deducing the type of T at compile time for void
-		if constexpr (std::is_void_v<T>)
-		{
-			std::cerr << "UniquePtr<void> is not supported."
-				<< "The pointer will be set to nullptr." << std::endl;
-			return false;
-		}
-		// Deducing the type of T at compile time for nullptr
-		else if constexpr (std::is_null_pointer_v<T>)
-		{
-			std::cout << "Warning: nullptr assigned" << std::endl;
-			return false;
-		}
-		return true;
-	}
-
-	template<typename T>
 	void UniquePtr<T>::allocateMemory()
 	{
 		ptr_ = static_cast<T*>(std::malloc(sizeof(T)));
@@ -90,53 +70,29 @@ namespace SPTR
 	template<typename T>
 	inline UniquePtr<T>::UniquePtr(std::nullptr_t) noexcept
 	{
-		if (!isTypeValid())
-		{
-			ptr_ = nullptr;
-		}
+		ptr_ = nullptr;
 	}
 
 	template<typename T>
 	inline UniquePtr<T>::UniquePtr(T*& otherPtr) noexcept
 	{
-		if(!isTypeValid())
-		{
-			ptr_ = nullptr;
-		}
-		else
-		{
-			ptr_ = otherPtr;
-			// Avoiding double ownership
-			otherPtr = nullptr;
-			isAllocated_ = true;
-		}
+		ptr_ = otherPtr;
+		// Avoiding double ownership
+		otherPtr = nullptr;
+		isAllocated_ = true;
 	}
 
 	template<typename T>
 	inline UniquePtr<T>::UniquePtr(T& obj) noexcept
 	{
-		if (!isTypeValid())
-		{
-			ptr_ = nullptr;
-		}
-		else
-		{
-			ptr_ = &obj;
-		}
+		ptr_ = &obj;
 	}
 
 	template<typename T>
 	inline UniquePtr<T>::UniquePtr(T&& value) noexcept
 	{
-		if (!isTypeValid())
-		{
-			ptr_ = nullptr;
-		}
-		else
-		{
-			allocateMemory();
-			std::construct_at(ptr_, value); // or ptr_->T();
-		}
+		allocateMemory();
+		std::construct_at(ptr_, value); // or ptr_->T();
 	}
 
 	template<typename T>
