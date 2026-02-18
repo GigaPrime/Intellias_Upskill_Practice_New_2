@@ -149,7 +149,7 @@ TEST(UniquePtrTestOperators, OperatorAsteriskReturnsValue)
 	EXPECT_EQ(*uPtr, 42);
 }
 
-TEST(UniquePtrTestOperators, OperatorAsteriskTHrowsIfPtrIsNotInitialised)
+TEST(UniquePtrTestOperators, OperatorAsteriskThrowsIfPtrIsNotInitialised)
 {
 	SPTR::UniquePtr<int> uPtr;
 	EXPECT_THROW(*uPtr, std::runtime_error);

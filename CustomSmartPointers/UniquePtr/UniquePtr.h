@@ -5,8 +5,6 @@
 #include <functional>
 #include <type_traits>
 
-#include "../IPtr/IPtr.h"
-
 namespace SPTR
 {
 	namespace detail
@@ -18,11 +16,10 @@ namespace SPTR
 		};
 	} // end of detail
 
-
 	template <typename T>
 	// Potentially C++20 concepts could be used 
 	// to constrain T types avoiding nullptr and void types
-	class UniquePtr final : public IPtr<T>
+	class UniquePtr final
 	{
 	private:
 		T* ptr_ = nullptr;
@@ -44,13 +41,13 @@ namespace SPTR
 		UniquePtr& operator=(const UniquePtr& other) = delete;
 		UniquePtr& operator=(UniquePtr&& other) noexcept;
 
-		~UniquePtr() override;
+		~UniquePtr() ;
 
-		T& operator*() const override;
-		T* operator->() const override;
+		T& operator*() const ;
+		T* operator->() const ;
 		decltype(auto) operator[](const std::size_t index) const;
-		T* get() const override;
-		void reset() override;
+		T* get() const ;
+		void reset() ;
 	};
 
 	// Non-member functions
@@ -255,7 +252,6 @@ namespace SPTR
 		return SPTR::UniquePtr<R> (ptr);
 	}
 
-	// operator++
 	// operator < / >
 	// operator ==
 	// ...
