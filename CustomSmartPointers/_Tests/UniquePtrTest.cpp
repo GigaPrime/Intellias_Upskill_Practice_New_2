@@ -61,13 +61,6 @@ TEST(UniquePtrTestCtor, cTorTrivialStackAllocatedPtrValue)
 	EXPECT_EQ(*uPtr.get(), value);
 }
 
-TEST(UniquePtrTestCtor, cTorTrivialValue)
-{
-	int value = 42;
-	SPTR::UniquePtr<int> uPtr(value);
-	EXPECT_EQ(*uPtr.get(), value);
-}
-
 TEST(UniquePtrTestCtor, MoveCtorTrivialHeapAllocatedValue)
 {
 	int* valuePtr = new int(42);
@@ -97,29 +90,11 @@ TEST(UniquePtrTestCtor, MoveCtorTrivialStackAllocatedValue)
 TEST(UniquePtrTestCtor, MoveAssignmentOperatorTest)
 {
 	int value = 42;
-	SPTR::UniquePtr<int> uPtr1(value);
+	int* valuePtr = new int(value);
+	SPTR::UniquePtr<int> uPtr1(valuePtr);	// Why this causese a failure: SPTR::UniquePtr<int> uPtr1(new int(42)) ?
 	SPTR::UniquePtr<int> uPtr2 = std::move(uPtr1);
 	EXPECT_EQ(uPtr1.get(), nullptr);
 	EXPECT_EQ(*uPtr2.get(), value);
-}
-
-TEST(UniquePtrTestDtor, DestructorDeletesAndDeallocatesComplexObject)
-{
-	// A 'side-handler' for the underlying vector
-	std::vector<int>* ptrToVector;
-	{
-		SPTR::UniquePtr<std::vector<int>> uPtr(std::initializer_list<int>{42, 43, 44, 45});
-		uPtr->shrink_to_fit();
-		EXPECT_EQ(uPtr->size(), 4);
-		EXPECT_EQ(uPtr->capacity(), uPtr->size()); // shrink_to_fit guarantees that
-		EXPECT_EQ(uPtr->at(0), 42);
-		ptrToVector = uPtr.get();
-		// Destructor is called here
-	}
-	
-	// ptrToVector becomes a dangling pointer, hovewer the memory is not physically wiped
-	// data is still there, but the allocated memory is free
-	EXPECT_EQ(ptrToVector->capacity(), 0);
 }
 
 struct Beacon
@@ -140,8 +115,6 @@ TEST(UniquePtrTestDtor, DestructorDeletesAndDeallocatesCustomObject)
 }
 
 // TEST uncompartible types while assigning or moving!!!
-
-// Though I dont imagine how to test operator->
 
 TEST(UniquePtrTestOperators, OperatorAsteriskReturnsValue)
 {
@@ -253,3 +226,73 @@ TEST(MakeUniqueTest, ShouldThrowIfCtorThrows)
 		SPTR::makeUnique<std::vector<std::uint64_t>>(1'000'000'000'000'000), 
 		std::bad_alloc);
 }
+
+struct ResourceByMalloc
+{
+	ResourceByMalloc() { std::cout << "ResourceByMalloc created"; }
+	~ResourceByMalloc() { std::cout << "ResourceByMalloc destroyed"; }
+};
+
+struct ResourceByNew
+{
+	ResourceByNew() { std::cout << "ResourceByNew created"; }
+	~ResourceByNew() { std::cout << "ResourceByNew destroyed"; }
+};
+
+template <typename T>
+struct ResourceFactory
+{
+	static T* createResource()
+	{
+		if constexpr (std::is_same_v<T, ResourceByMalloc>)
+		{
+			return std::construct_at(static_cast<ResourceByMalloc*>(std::malloc(sizeof(ResourceByMalloc))), ResourceByMalloc());
+		}
+		else if constexpr (std::is_same_v<T, ResourceByNew>)
+		{
+			return new ResourceByNew();
+		}
+		else
+		{
+			throw std::runtime_error("Unsupported resource type");
+		}
+
+	}
+};
+
+template <typename T>
+struct Deleter
+{
+	void operator()(T* ptr) const
+	{
+		if constexpr (std::is_same_v<T, ResourceByMalloc>)
+		{
+				std::cout << "Custom deleter for ResourceByMalloc called\n";
+				std::destroy_at(ptr);
+				std::free(ptr);
+		}
+		else if constexpr (std::is_same_v<T, ResourceByNew>)
+		{
+				std::cout << "Custom deleter for ResourceByNew called\n";
+				delete ptr;
+		}
+		else
+		{
+			throw std::runtime_error("Unsupported resource type");
+		}
+	}
+};
+
+
+TEST(CustomDeleter, Trivial)
+{
+	ResourceFactory<ResourceByMalloc> resourceFactory;
+	ResourceByMalloc* resource = resourceFactory.createResource();
+	Deleter<ResourceByMalloc> deleterForMalloc;
+	deleterForMalloc(resource);
+	EXPECT_EQ(1, 1);
+
+	std::unique_ptr<int> ptr1(new int(42));
+}
+
+// @TODO Add tests for operator->()

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <concepts>
 #include <functional>
+#include <memory>
 #include <type_traits>
 
 namespace SPTR
@@ -17,6 +18,9 @@ namespace SPTR
 	} // end of detail
 
 	template <typename T>
+	struct Deleter;
+
+	template <typename T, typename Deleter = std::default_delete<T>>
 	// Potentially C++20 concepts could be used 
 	// to constrain T types avoiding nullptr and void types
 	class UniquePtr final
@@ -25,13 +29,10 @@ namespace SPTR
 		T* ptr_ = nullptr;
 		bool isAllocated_ = false;
 
-		void allocateMemory();
-
 	public:
 		UniquePtr() noexcept = default;
 		explicit UniquePtr(std::nullptr_t) noexcept;
 		explicit UniquePtr(T*& ptr) noexcept;
-		explicit UniquePtr(T& obj) noexcept;
 		explicit UniquePtr(T&& value) noexcept;
 		
 		UniquePtr(const UniquePtr& other) = delete;
@@ -49,32 +50,14 @@ namespace SPTR
 		void reset() ;
 	};
 
-	// Non-member functions
-	template<typename R, typename ... P>
-	UniquePtr<R> makeUnique(P&& ...args);
-
-	template<typename T>
-	UniquePtr<T[]> makeUnique(std::initializer_list<T> init);
-
-	template<typename T>
-	void UniquePtr<T>::allocateMemory()
-	{
-		ptr_ = static_cast<T*>(std::malloc(sizeof(T)));
-		if (!ptr_)
-		{
-			std::cerr << "Memory allocation failed" << std::endl;
-		}
-		isAllocated_ = true;
-	}
-
-	template<typename T>
-	inline UniquePtr<T>::UniquePtr(std::nullptr_t) noexcept
+	template<typename T, typename Deleter>
+	inline SPTR::UniquePtr<T, Deleter>::UniquePtr(std::nullptr_t) noexcept
 	{
 		ptr_ = nullptr;
 	}
 
-	template<typename T>
-	inline UniquePtr<T>::UniquePtr(T*& otherPtr) noexcept
+	template<typename T, typename Deleter>
+	inline UniquePtr<T, Deleter>::UniquePtr(T*& otherPtr) noexcept
 	{
 		ptr_ = otherPtr;
 		// Avoiding double ownership
@@ -82,27 +65,20 @@ namespace SPTR
 		isAllocated_ = true;
 	}
 
-	template<typename T>
-	inline UniquePtr<T>::UniquePtr(T& obj) noexcept
+	template<typename T, typename Deleter>
+	inline UniquePtr<T, Deleter>::UniquePtr(T&& value) noexcept
 	{
-		ptr_ = &obj;
+		ptr_ = new T(value);
 	}
 
-	template<typename T>
-	inline UniquePtr<T>::UniquePtr(T&& value) noexcept
-	{
-		allocateMemory();
-		std::construct_at(ptr_, value); // or ptr_->T();
-	}
-
-	template<typename T>
-	inline UniquePtr<T>::~UniquePtr()
+	template<typename T, typename Deleter>
+	inline UniquePtr<T, Deleter>::~UniquePtr()
 	{
 		reset();
 	}
 
-	template<typename T>
-	inline UniquePtr<T>::UniquePtr(UniquePtr&& other) noexcept
+	template<typename T, typename Deleter>
+	inline UniquePtr<T, Deleter>::UniquePtr(UniquePtr&& other) noexcept
 	{
 		if (this != &other)
 		{
@@ -114,8 +90,8 @@ namespace SPTR
 		}
 	}
 
-	template<typename T>
-	inline UniquePtr<T>& UniquePtr<T>::operator=(UniquePtr&& other) noexcept
+	template<typename T, typename Deleter>
+	inline UniquePtr<T, Deleter>& UniquePtr<T, Deleter>::operator=(UniquePtr&& other) noexcept
 	{
 		if (this != &other)
 		{
@@ -128,8 +104,8 @@ namespace SPTR
 		return *this;
 	}
 
-	template<typename T>
-	inline T& UniquePtr<T>::operator*() const
+	template<typename T, typename Deleter>
+	inline T& UniquePtr<T, Deleter>::operator*() const
 	{
 		if (!ptr_)
 		{
@@ -138,14 +114,14 @@ namespace SPTR
 		return *ptr_;
 	}
 
-	template<typename T>
-	inline T* SPTR::UniquePtr<T>::operator->() const
+	template<typename T, typename Deleter>
+	inline T* SPTR::UniquePtr<T, Deleter>::operator->() const
 	{
 		return ptr_;
 	}
 
-	template<typename T>
-	decltype(auto) UniquePtr<T>::operator[](std::size_t index) const
+	template<typename T, typename Deleter>
+	decltype(auto) UniquePtr<T, Deleter>::operator[](std::size_t index) const
 	{
 		if constexpr (!detail::isIndexable<T>)
 		{
@@ -161,23 +137,17 @@ namespace SPTR
 		} 
 	}
 
-	template<typename T>
-	inline T* UniquePtr<T>::get() const
+	template<typename T, typename Deleter>
+	inline T* UniquePtr<T, Deleter>::get() const
 	{
 		return ptr_;
 	}
 
-	template<typename T>
-	inline void UniquePtr<T>::reset()
+	template<typename T, typename Deleter>
+	inline void UniquePtr<T, Deleter>::reset()
 	{
-		if (ptr_)
-		{
-			std::destroy_at(ptr_); // or ptr_->~T();
-			if (isAllocated_)
-			{
-				std::free(ptr_);
-			}
-		}
+		Deleter deleter;
+		deleter(ptr_);
 		ptr_ = nullptr;
 	}
 
@@ -335,5 +305,4 @@ namespace SPTR
 
 		return UniquePtr<T[]>(ptr, elementsNumber);
 	}
-
 } // end of SPTR
