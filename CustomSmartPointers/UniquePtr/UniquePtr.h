@@ -21,19 +21,16 @@ namespace SPTR
 	struct Deleter;
 
 	template <typename T, typename Deleter = std::default_delete<T>>
-	// Potentially C++20 concepts could be used 
-	// to constrain T types avoiding nullptr and void types
 	class UniquePtr final
 	{
 	private:
 		T* ptr_ = nullptr;
-		bool isAllocated_ = false;
 
 	public:
 		UniquePtr() noexcept = default;
 		explicit UniquePtr(std::nullptr_t) noexcept;
-		explicit UniquePtr(T*& ptr) noexcept;
-		explicit UniquePtr(T&& value) noexcept;
+		explicit UniquePtr(T* ptr) noexcept;
+		explicit UniquePtr(T* ptr, const Deleter& deleter) noexcept;
 		
 		UniquePtr(const UniquePtr& other) = delete;
 		UniquePtr(UniquePtr&& other) noexcept;
@@ -43,8 +40,8 @@ namespace SPTR
 
 		~UniquePtr() ;
 
-		T& operator*() const ;
-		T* operator->() const ;
+		T& operator*();
+		T* operator->();
 		decltype(auto) operator[](const std::size_t index) const;
 		T* get() const ;
 		void reset() ;
@@ -57,18 +54,15 @@ namespace SPTR
 	}
 
 	template<typename T, typename Deleter>
-	inline UniquePtr<T, Deleter>::UniquePtr(T*& otherPtr) noexcept
+	inline UniquePtr<T, Deleter>::UniquePtr(T* otherPtr) noexcept
 	{
 		ptr_ = otherPtr;
-		// Avoiding double ownership
-		otherPtr = nullptr;
-		isAllocated_ = true;
 	}
 
 	template<typename T, typename Deleter>
-	inline UniquePtr<T, Deleter>::UniquePtr(T&& value) noexcept
+	inline SPTR::UniquePtr<T, Deleter>::UniquePtr(T* ptr, const Deleter& deleter) noexcept
 	{
-		ptr_ = new T(value);
+		ptr_ = ptr;
 	}
 
 	template<typename T, typename Deleter>
@@ -84,9 +78,7 @@ namespace SPTR
 		{
 			reset();
 			ptr_ = other.ptr_;
-			isAllocated_ = other.isAllocated_;
 			other.ptr_ = nullptr;
-			other.isAllocated_ = false;
 		}
 	}
 
@@ -97,15 +89,13 @@ namespace SPTR
 		{
 			reset();
 			ptr_ = other.ptr_;
-			isAllocated_ = other.isAllocated_;
 			other.ptr_ = nullptr;
-			other.isAllocated_ = false;
 		}
 		return *this;
 	}
 
 	template<typename T, typename Deleter>
-	inline T& UniquePtr<T, Deleter>::operator*() const
+	inline T& UniquePtr<T, Deleter>::operator*()
 	{
 		if (!ptr_)
 		{
@@ -115,8 +105,12 @@ namespace SPTR
 	}
 
 	template<typename T, typename Deleter>
-	inline T* SPTR::UniquePtr<T, Deleter>::operator->() const
+	inline T* SPTR::UniquePtr<T, Deleter>::operator->()
 	{
+		if (!ptr_)
+		{
+			throw std::runtime_error("Dereferencing a nullptr\n");
+		}
 		return ptr_;
 	}
 
@@ -156,21 +150,14 @@ namespace SPTR
 	template<typename R, typename ... P>
 	UniquePtr<R> makeUnique(P&& ...args)
 	{
-		R* ptr = static_cast<R*>(std::malloc(sizeof(R)));
-		if (!ptr)
-		{
-			throw std::bad_alloc();
-		}
+		R* ptr;
 
 		try 
 		{
-			// std::construct_at is noexcept, but the called c-tor may throw
-			std::construct_at(ptr, std::forward<P>(args)...);
+			ptr = new R(std::forward<P>(args)...);
 		}
 		catch (...)
 		{
-			// nothing was created, no std::destroy_at / d-tor needed
-			std::free(ptr);
 			// re-throwing further
 			throw;
 		}
@@ -178,10 +165,35 @@ namespace SPTR
 		return SPTR::UniquePtr<R> (ptr);
 	}
 
-	// operator < / >
-	// operator ==
-	// ...
+	template<typename T>
+	bool operator==(const UniquePtr<T>& lhs, const UniquePtr<T>& rhs)
+	{
+		return lhs.get() == rhs.get();
+	}
 
+	template<typename T>
+	bool operator>(const UniquePtr<T>& lhs, const UniquePtr<T>& rhs)
+	{
+		return lhs.get() > rhs.get();
+	}
+
+	template<typename T>
+	bool operator>=(const UniquePtr<T>& lhs, const UniquePtr<T>& rhs)
+	{
+		return lhs.get() >= rhs.get();
+	}
+
+	template<typename T>
+	bool operator<(const UniquePtr<T>& lhs, const UniquePtr<T>& rhs)
+	{
+		return lhs.get() < rhs.get();
+	}
+
+	template<typename T>
+	bool operator<=(const UniquePtr<T>& lhs, const UniquePtr<T>& rhs)
+	{
+		return lhs.get() <= rhs.get();
+	}
 
 	// Partial template specialization for void*
 	template <>
