@@ -11,7 +11,7 @@ namespace SPTR
 	namespace detail
 	{
 		template <typename T>
-		concept isIndexable = requires(T& t, std::size_t i) 
+		concept isIndexable = requires(T & t, std::size_t i)
 		{
 			t[i];
 		};
@@ -30,40 +30,27 @@ namespace SPTR
 		UniquePtr() noexcept = default;
 		explicit UniquePtr(std::nullptr_t) noexcept;
 		explicit UniquePtr(T* ptr) noexcept;
-		explicit UniquePtr(T* ptr, const Deleter& deleter) noexcept;
-		
+
 		UniquePtr(const UniquePtr& other) = delete;
 		UniquePtr(UniquePtr&& other) noexcept;
-		
+
 		UniquePtr& operator=(const UniquePtr& other) = delete;
 		UniquePtr& operator=(UniquePtr&& other) noexcept;
 
-		~UniquePtr() ;
+		~UniquePtr();
 
 		T& operator*();
 		T* operator->();
 		decltype(auto) operator[](const std::size_t index) const;
-		T* get() const ;
-		void reset() ;
+		T* get() const;
+		void reset();
 	};
 
 	template<typename T, typename Deleter>
-	inline SPTR::UniquePtr<T, Deleter>::UniquePtr(std::nullptr_t) noexcept
-	{
-		ptr_ = nullptr;
-	}
+	inline SPTR::UniquePtr<T, Deleter>::UniquePtr(std::nullptr_t) noexcept : ptr_(nullptr) {}
 
 	template<typename T, typename Deleter>
-	inline UniquePtr<T, Deleter>::UniquePtr(T* otherPtr) noexcept
-	{
-		ptr_ = otherPtr;
-	}
-
-	template<typename T, typename Deleter>
-	inline SPTR::UniquePtr<T, Deleter>::UniquePtr(T* ptr, const Deleter& deleter) noexcept
-	{
-		ptr_ = ptr;
-	}
+	inline UniquePtr<T, Deleter>::UniquePtr(T* otherPtr) noexcept : ptr_(otherPtr) {}
 
 	template<typename T, typename Deleter>
 	inline UniquePtr<T, Deleter>::~UniquePtr()
@@ -172,6 +159,12 @@ namespace SPTR
 	}
 
 	template<typename T>
+	bool operator!=(const UniquePtr<T>& lhs, const UniquePtr<T>& rhs)
+	{
+		return lhs.get() != rhs.get();
+	}
+
+	template<typename T>
 	bool operator>(const UniquePtr<T>& lhs, const UniquePtr<T>& rhs)
 	{
 		return lhs.get() > rhs.get();
@@ -194,31 +187,6 @@ namespace SPTR
 	{
 		return lhs.get() <= rhs.get();
 	}
-
-	// Partial template specialization for void*
-	template <>
-	class UniquePtr<void>
-	{
-	private:
-		void* ptr_ = nullptr;
-
-	public:
-		UniquePtr() = delete;
-		explicit UniquePtr(void*& ptr) noexcept : ptr_(ptr) {};
-		
-		UniquePtr(const UniquePtr& other) = delete;
-		UniquePtr(UniquePtr&& other) = delete;
-		
-		UniquePtr& operator=(const UniquePtr& other) = delete;
-		UniquePtr& operator=(UniquePtr&& other) = delete;
-
-		~UniquePtr() {};
-
-		void* get() const { return ptr_; };
-		void* operator->() const = delete;
-		decltype(auto) operator[](const std::size_t index) const = delete; 
-		void operator*() const = delete;
-	};
 
 	// Partial template specialization for C-style arrays
 	template <typename T>

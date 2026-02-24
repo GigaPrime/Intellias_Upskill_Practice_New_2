@@ -61,7 +61,7 @@ TEST(UniquePtrTestCtor, UniquePtrRturnsAdoptedPtrValue)
 	EXPECT_EQ(*uPtr.get(), 42);
 }
 
-TEST(UniquePtrTestCtor, MoveCtorReturnsMovedPtrValue)
+TEST(UniquePtrTestMoveCtor, CtorReturnsMovedPtrValue)
 {
 	int* valuePtr = new int(42);
 	SPTR::UniquePtr<int> uPtr1(valuePtr);
@@ -70,6 +70,17 @@ TEST(UniquePtrTestCtor, MoveCtorReturnsMovedPtrValue)
 	SPTR::UniquePtr<int> uPtr2(std::move(uPtr1));
 	EXPECT_EQ(uPtr1.get(), nullptr);
 	EXPECT_EQ(*uPtr2.get(), 42);
+}
+
+TEST(UniquePtrTestMoveCtor, CtorDoesNothingIfSelfMoved)
+{
+	SPTR::UniquePtr<int> uPtr1 = SPTR::makeUnique<int>(42);
+	auto addressBeforeMove = uPtr1.get();
+
+	uPtr1 = std::move(uPtr1);
+	auto addressAfterMove = uPtr1.get();
+	EXPECT_EQ(addressBeforeMove, addressAfterMove);
+	EXPECT_EQ(*uPtr1.get(), 42);
 }
 
 struct Beacon
@@ -108,6 +119,16 @@ TEST(UniquePtrTestOperators, MoveAssignmentMovesOwnership)
 	EXPECT_EQ(*uPtr2.get(), value);
 }
 
+TEST(UniquePtrTestOperators, MoveAssignmentDoesNothingIfSelfAssigned)
+{
+	SPTR::UniquePtr<int> uPtr1 = SPTR::makeUnique<int>(42);
+	auto addressBeforeMove = uPtr1.get();
+	uPtr1 = std::move(uPtr1);
+	auto addressAfterMove = uPtr1.get();
+	EXPECT_EQ(addressBeforeMove, addressAfterMove);
+	EXPECT_EQ(*uPtr1.get(), 42);
+}
+
 TEST(UniquePtrTestOperators, OperatorAsteriskThrowsIfNotSet)
 {
 	SPTR::UniquePtr<int> uPtr;
@@ -122,11 +143,11 @@ TEST(UniquePtrTestOperators, OperatorAsteriskReturnsNewValueIfSet)
 	EXPECT_EQ(*uPtr, 43);
 }
 
-TEST(UniquePtrTestOperators, OperatorAsteriskSetsValueIfCompartibleTypes)
+TEST(UniquePtrTestOperators, OperatorAsteriskSetsValue)
 {
 	SPTR::UniquePtr<int> uPtr;
 	uPtr = SPTR::makeUnique<int>(42);
-	*uPtr = 43.5;
+	*uPtr = 43;
 	EXPECT_EQ(*uPtr, 43);
 }
 
@@ -134,6 +155,9 @@ TEST(UniquePtrTestOperators, OperatorArrowReturnsValue)
 {
 	SPTR::UniquePtr<std::vector<int>> uPtr = SPTR::makeUnique<std::vector<int>>(std::initializer_list<int>{42, 43, 44, 45});
 	EXPECT_EQ(uPtr->at(0), 42);
+/*
+	SPTR::UniquePtr<std::vector<int>> uPtr2 = SPTR::makeUnique<std::vector<int>>(42, 43, 44, 45);
+	EXPECT_EQ(uPtr2->at(3), 45)*/;
 }
 
 TEST(UniquePtrTestOperators, OperatorArrowSetsValue)
@@ -258,27 +282,6 @@ struct ResourceByNew
 };
 
 template <typename T>
-struct ResourceFactory
-{
-	static T* createResource()
-	{
-		if constexpr (std::is_same_v<T, ResourceByMalloc>)
-		{
-			return std::construct_at(static_cast<ResourceByMalloc*>(std::malloc(sizeof(ResourceByMalloc))), ResourceByMalloc());
-		}
-		else if constexpr (std::is_same_v<T, ResourceByNew>)
-		{
-			return new ResourceByNew();
-		}
-		else
-		{
-			throw std::runtime_error("Unsupported resource type");
-		}
-
-	}
-};
-
-template <typename T>
 struct Deleter
 {
 	void operator()(T* ptr) const
@@ -303,12 +306,11 @@ struct Deleter
 
 TEST(CustomDeleter, UniquePtrWithCustomDeleterDeletesResource)
 {
-	ResourceFactory<ResourceByMalloc> resourceFactory;
-	ResourceByMalloc* resource = resourceFactory.createResource();
+	auto resource = std::construct_at(static_cast<ResourceByMalloc*>(
+		std::malloc(sizeof(ResourceByMalloc))), ResourceByMalloc());
 	Deleter<ResourceByMalloc> deleterForMalloc;
-
 	{
-		SPTR::UniquePtr<ResourceByMalloc, Deleter<ResourceByMalloc>> uPtr(resource, deleterForMalloc);
+		SPTR::UniquePtr<ResourceByMalloc, Deleter<ResourceByMalloc>> uPtr(resource);
 		EXPECT_EQ(uPtr->value, 42);
 		EXPECT_NO_THROW(uPtr.~UniquePtr()); // Explicitly calling destructor to test the custom deleter
 		EXPECT_EQ(uPtr.get(), nullptr); // After destructor, the pointer should be null
@@ -317,14 +319,11 @@ TEST(CustomDeleter, UniquePtrWithCustomDeleterDeletesResource)
 
 TEST(CustomDeleter, UniquePtrWithDefaultDeleterDeletesResource)
 {
-	ResourceFactory<ResourceByNew> resourceFactory;
-	ResourceByNew* resource = resourceFactory.createResource();
-
+	auto resource = new ResourceByNew();
 	SPTR::UniquePtr<ResourceByNew, Deleter<ResourceByNew>> uPtr(resource);
 	EXPECT_EQ(uPtr->value, 43);
 	EXPECT_NO_THROW(uPtr.~UniquePtr()); // Explicitly calling destructor to test the custom deleter
 	EXPECT_EQ(uPtr.get(), nullptr); // After destructor, the pointer should be null
-
 }
 
 TEST(ComparisonOperators, ComparisonReturnsTrueIfEqualAndFalseIfNot)
@@ -333,8 +332,20 @@ TEST(ComparisonOperators, ComparisonReturnsTrueIfEqualAndFalseIfNot)
 	SPTR::UniquePtr<int> uPtr2 = SPTR::makeUnique<int>(42);
 	EXPECT_TRUE(uPtr1 == uPtr1); // comparing with itself
 	EXPECT_FALSE(uPtr1 == uPtr2); // comparing with another unique_ptr
+	EXPECT_FALSE(uPtr1 != uPtr1); // comparing with itself
+	EXPECT_TRUE(uPtr1 != uPtr2); // comparing with another unique_ptr
 	EXPECT_TRUE(uPtr1 < uPtr2 || uPtr2 < uPtr1); // comparing addresses, one should be less than the other
 	EXPECT_TRUE(uPtr1 > uPtr2 || uPtr2 > uPtr1);
 	EXPECT_TRUE(uPtr1 <= uPtr2 || uPtr2 <= uPtr1); 
 	EXPECT_TRUE(uPtr1 >= uPtr2 || uPtr2 >= uPtr1);
 }
+
+// Remove Factory +
+// Remove specialization for void +
+// Delete C-tor with custom deleter in params
+// switch to C++11
+// check each if in tests +
+// 
+// add != operator +
+// 
+// EXPECT_CALL for Deleter
