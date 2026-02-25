@@ -342,10 +342,16 @@ TEST(ComparisonOperators, ComparisonReturnsTrueIfEqualAndFalseIfNot)
 
 // Remove Factory +
 // Remove specialization for void +
-// Delete C-tor with custom deleter in params
+// Delete C-tor with custom deleter in params +
 // switch to C++11
 // check each if in tests +
 // 
 // add != operator +
 // 
 // EXPECT_CALL for Deleter
+
+//template<typename T>
+//UniquePtr<T[]> makeUnique(std::initializer_list<T> init)
+//
+//requires custom deleter
+//consider rewriting to new
