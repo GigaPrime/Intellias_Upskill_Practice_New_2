@@ -2,7 +2,7 @@
 
 #include "pch.h"
 
-#include "../UniquePtr/UniquePtr.h"
+#include "../Pointers/UniquePtr.h"
 
 template <typename T>
 class UniquePtrTestFixtureBaseTypes : public ::testing::Test
