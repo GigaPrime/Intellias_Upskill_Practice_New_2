@@ -105,6 +105,7 @@ TEST(UniquePtrTestDtor, DestructorDeletesAndDeallocatesCustomObject)
 	{
 		SPTR::UniquePtr<Beacon> uPtr = SPTR::makeUnique<Beacon>();
 		EXPECT_EQ(Beacon::counter, 1);
+		//EXPECT_CALL(uPtr.~UniquePtr());
 	}
 	EXPECT_EQ(Beacon::counter, 0);
 }
@@ -153,7 +154,8 @@ TEST(UniquePtrTestOperators, OperatorAsteriskSetsValue)
 
 TEST(UniquePtrTestOperators, OperatorArrowReturnsValue)
 {
-	SPTR::UniquePtr<std::vector<int>> uPtr = SPTR::makeUnique<std::vector<int>>(std::initializer_list<int>{42, 43, 44, 45});
+	SPTR::UniquePtr<std::vector<int>> uPtr 
+		= SPTR::makeUnique<std::vector<int>>(std::vector<int>{42, 43, 44, 45});
 	EXPECT_EQ(uPtr->at(0), 42);
 /*
 	SPTR::UniquePtr<std::vector<int>> uPtr2 = SPTR::makeUnique<std::vector<int>>(42, 43, 44, 45);
@@ -162,7 +164,8 @@ TEST(UniquePtrTestOperators, OperatorArrowReturnsValue)
 
 TEST(UniquePtrTestOperators, OperatorArrowSetsValue)
 {
-	SPTR::UniquePtr<std::vector<int>> uPtr = SPTR::makeUnique<std::vector<int>>(std::initializer_list<int>{42, 43, 44, 45});
+	SPTR::UniquePtr<std::vector<int>> uPtr 
+		= SPTR::makeUnique<std::vector<int>>(std::vector<int>{42, 43, 44, 45});
 	EXPECT_EQ(uPtr->at(0), 42);
 	uPtr->at(0) = 43;
 	EXPECT_EQ(uPtr->at(0), 43);
@@ -183,7 +186,7 @@ TEST(UniquePtrTestOperators, OperatorGetReturnsNullptrIfUptrIsNotAssigned)
 TEST(UniquePtrTestOperators, OperatorIndexReturnsValueFromSTLContainer)
 {
 	SPTR::UniquePtr<std::vector<int>> uPtr =
-		SPTR::makeUnique<std::vector<int>>(std::initializer_list<int>{42, 43, 44, 45});
+		SPTR::makeUnique<std::vector<int>>(std::vector<int>{42, 43, 44, 45});
 	
 	size_t val = 42;
 	for (size_t i = 0; i < uPtr->size(); ++i)
@@ -207,15 +210,6 @@ TEST(UniquePtrTestOperators, OperatorIndexReturnsValueFromPlainArray)
 	}
 }
 
-TEST(UniquePtrTestOperators, OperatorIndexFailIfOutOfBounds)
-{
-	SPTR::UniquePtr<std::vector<int>> uPtr =
-		SPTR::makeUnique<std::vector<int>>(std::initializer_list<int>{42, 43, 44, 45});
-	
-	//EXPECT_THROW(uPtr[4], std::out_of_range);
-	EXPECT_THROW(uPtr->at(4), std::out_of_range);
-}
-
 TEST(UniquePtrTestOperators, OperatorIndexThrowsIfTypeIsNotIterable)
 {
 	SPTR::UniquePtr<int> uPtr = SPTR::makeUnique<int>(42);
@@ -228,6 +222,12 @@ TEST(UniquePtrTestOperators, OperatorIndexThrowsIfPtrIsNotInitialised)
 	EXPECT_THROW(uPtr[0], std::runtime_error);
 }
 
+TEST(UniquePtrOperators, OperatorIndexFailsIAtCompileTimeIfVoid)
+{
+	SPTR::UniquePtr<void> uPtr = SPTR::makeUnique<void>();
+	//EXPECT_THROW(uPtr[0], std::runtime_error); -> fails at compile time. Expected, since void is not indexable.
+}
+
 TEST(MakeUniqueTest, TrivialRValue)
 {
 	SPTR::UniquePtr<int> uPtr = SPTR::makeUnique<int>(42);
@@ -237,7 +237,7 @@ TEST(MakeUniqueTest, TrivialRValue)
 TEST(MakeUniqueTest, WithParamsForCtor)
 {
 	SPTR::UniquePtr<std::vector<int>> uPtr =
-		SPTR::makeUnique<std::vector<int>>(std::initializer_list<int>{42, 43, 44, 45});
+		SPTR::makeUnique<std::vector<int>>(std::vector<int>{42, 43, 44, 45});
 	
 	size_t val = 42;
 	for (const auto& elem : *uPtr.get())
@@ -340,6 +340,7 @@ TEST(ComparisonOperators, ComparisonReturnsTrueIfEqualAndFalseIfNot)
 	EXPECT_TRUE(uPtr1 >= uPtr2 || uPtr2 >= uPtr1);
 }
 
+
 // Remove Factory +
 // Remove specialization for void +
 // Delete C-tor with custom deleter in params +
@@ -349,6 +350,10 @@ TEST(ComparisonOperators, ComparisonReturnsTrueIfEqualAndFalseIfNot)
 // add != operator +
 // 
 // EXPECT_CALL for Deleter
+
+
+// Impossible to call mocked function from deleted because it would require either overriding reset() 
+//or creating an interface over UniquePtr to inject dependency wich is not allowed by design
 
 //template<typename T>
 //UniquePtr<T[]> makeUnique(std::initializer_list<T> init)

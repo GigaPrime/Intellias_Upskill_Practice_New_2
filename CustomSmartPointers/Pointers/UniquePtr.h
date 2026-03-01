@@ -188,6 +188,38 @@ namespace SPTR
 		return lhs.get() <= rhs.get();
 	}
 
+	// Partial template specialization for void*
+	template <>
+	class UniquePtr<void>
+	{
+	private:
+		void* ptr_ = nullptr;
+
+	public:
+		UniquePtr() = delete;
+		explicit UniquePtr(void*& ptr) noexcept : ptr_(ptr) {};
+
+		UniquePtr(const UniquePtr& other) = delete;
+		UniquePtr(UniquePtr&& other) = delete;
+
+		UniquePtr& operator=(const UniquePtr& other) = delete;
+		UniquePtr& operator=(UniquePtr&& other) = delete;
+
+		~UniquePtr() {};
+
+		void* get() const { return ptr_; };
+		void* operator->() const = delete;
+		decltype(auto) operator[](const std::size_t index) const = delete;
+		void operator*() const = delete;
+	};
+
+	template <>
+	UniquePtr<void> makeUnique()
+	{
+		void* ptr = nullptr;
+		return UniquePtr<void>(ptr);
+	}
+
 	// Partial template specialization for C-style arrays
 	template <typename T>
 	class UniquePtr<T[]>
