@@ -194,19 +194,19 @@ namespace SPTR
 	{
 	private:
 		void* ptr_ = nullptr;
-
+	
 	public:
 		UniquePtr() = delete;
 		explicit UniquePtr(void*& ptr) noexcept : ptr_(ptr) {};
-
+	
 		UniquePtr(const UniquePtr& other) = delete;
 		UniquePtr(UniquePtr&& other) = delete;
-
+	
 		UniquePtr& operator=(const UniquePtr& other) = delete;
 		UniquePtr& operator=(UniquePtr&& other) = delete;
-
+	
 		~UniquePtr() {};
-
+	
 		void* get() const { return ptr_; };
 		void* operator->() const = delete;
 		decltype(auto) operator[](const std::size_t index) const = delete;
