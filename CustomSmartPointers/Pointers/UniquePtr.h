@@ -1,9 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <concepts>
-#include <functional>
-#include <memory>
 #include <type_traits>
 
 namespace SPTR
