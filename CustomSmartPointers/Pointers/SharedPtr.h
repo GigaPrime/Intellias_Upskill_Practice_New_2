@@ -1,18 +1,9 @@
 #pragma once
 
-#include <type_traits>
+#include "Helper.h"
 
 namespace SPTR
 {
-	namespace detail
-	{
-		template <typename T>
-		concept isIndexable = requires(T & t, std::size_t i)
-		{
-			t[i];
-		};
-	} // end of detail
-
 	template <typename T>
 	struct Deleter;
 
@@ -43,7 +34,10 @@ namespace SPTR
 		T* get() const;
 		void reset();
 		void reset(T* ptr);
-		std::size_t refCount() const noexcept;
+		std::uint64_t refCount() const noexcept;
+
+		// @TODO: Remove this ater introducing Control block!
+		std::uint64_t* refCountPtr() const noexcept { return refCount_; }
 	};
 
 	template<typename T, typename Deleter>

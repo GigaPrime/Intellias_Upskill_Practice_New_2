@@ -1,18 +1,9 @@
 #pragma once
 
-#include <type_traits>
+#include "Helper.h"
 
 namespace SPTR
 {
-	namespace detail
-	{
-		template <typename T>
-		concept isIndexable = requires(T & t, std::size_t i)
-		{
-			t[i];
-		};
-	} // end of detail
-
 	template <typename T>
 	struct Deleter;
 

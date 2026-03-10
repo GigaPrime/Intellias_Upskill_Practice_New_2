@@ -483,9 +483,6 @@ namespace SharedPtrTests
         EXPECT_EQ(Beacon::counter, 0);
     }
 
-    // ============================================
-    // refCount() Tests
-    // ============================================
     TEST(SharedPtrTestRefCount, RefCountReturnsCorrectValue)
     {
         SPTR::SharedPtr<int> sPtr1(new int(42));
@@ -511,9 +508,6 @@ namespace SharedPtrTests
         EXPECT_EQ(sPtr2.refCount(), 1);
     }
 
-    // ============================================
-    // get() Tests
-    // ============================================
     TEST(SharedPtrTestGet, GetReturnsRawPointer)
     {
         int* valuePtr = new int(42);
@@ -534,9 +528,6 @@ namespace SharedPtrTests
         EXPECT_EQ(sPtr.get(), nullptr);
     }
 
-    // ============================================
-    // Comparison Operator Tests
-    // ============================================
     TEST(SharedPtrTestEqualityOperator, EqualityReturnsTrueForSamePointer)
     {
         SPTR::SharedPtr<int> sPtr1(new int(42));
@@ -578,9 +569,6 @@ namespace SharedPtrTests
         EXPECT_TRUE(uPtr1 >= uPtr2 || uPtr2 >= uPtr1);
     }
 
-    // ============================================
-    // makeShared() Tests
-    // ============================================
     TEST(SharedPtrTestMakeShared, MakeSharedCreatesAndReturnsSharedPtr)
     {
         SPTR::SharedPtr<int> sPtr = SPTR::makeShared<int>(42);
@@ -614,9 +602,6 @@ namespace SharedPtrTests
         EXPECT_EQ(Beacon::counter, 0);
     }
 
-    // ============================================
-    // Complex Scenarios and Edge Cases
-    // ============================================
     TEST(SharedPtrComplexScenarios, MultipleOwnersComplexLifetime)
     {
         SPTR::SharedPtr<Beacon> sPtr1(new Beacon());
