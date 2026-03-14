@@ -14,6 +14,11 @@ namespace SPTR
 		std::uint64_t* refCount_ = nullptr;
 		std::uint64_t* weakCount_ = nullptr;
 
+		// this one is necessary to access the fields without accessors 
+		// like T* ptr_
+		template<typename>
+		friend class WeakPtr;
+
 	public:
 		WeakPtr() noexcept = default;
 		explicit WeakPtr(std::nullptr_t) noexcept;
@@ -22,13 +27,15 @@ namespace SPTR
 		template <typename U>
 		explicit WeakPtr(const WeakPtr<U>& other) noexcept;
 
-		template <typename U>
-		WeakPtr(const SharedPtr<U>& otherShared) noexcept;
-
-		WeakPtr(WeakPtr&& other) noexcept;
+		explicit WeakPtr(const SharedPtr<T>& otherShared) noexcept;
 
 		template <typename U>
-		WeakPtr(WeakPtr<U>&& other) noexcept;
+		explicit WeakPtr(const SharedPtr<U>& otherShared) noexcept;
+
+		explicit WeakPtr(WeakPtr&& other) noexcept;
+
+		template <typename U>
+		explicit WeakPtr(WeakPtr<U>&& other) noexcept;
 
 		WeakPtr& operator=(const SharedPtr<T>& otherShared) noexcept;
 
@@ -47,8 +54,8 @@ namespace SPTR
 
 		~WeakPtr();
 
-		SharedPtr<T> lock() const noexcept;
-		bool expired() const noexcept;
+		SharedPtr<T> lock() noexcept;
+		bool expired() noexcept;
 		std::size_t useCount() const noexcept;
 		void reset() noexcept;
 	};
@@ -75,19 +82,47 @@ namespace SPTR
 
 	template<typename T>
 	template<typename U>
-	inline WeakPtr<T>::WeakPtr(const SharedPtr<U>& otherShared) noexcept
+	inline WeakPtr<T>::WeakPtr(const WeakPtr<U>& other) noexcept 
+		: ptr_(nullptr), refCount_(nullptr), weakCount_(nullptr)
 	{
-		if constexpr (std::is_convertible_v<U, T>)
+		if constexpr (std::is_convertible_v<U*, T*>)
 		{
-			if (ptr_ != otherShared.get())
+			ptr_ = other.ptr_;
+			refCount_ = other.refCount_;
+			weakCount_ = other.weakCount_;
+			if (ptr_)
 			{
-				ptr_ = otherShared.get();
-				refCount_ = otherShared.refCountPtr();
-				weakCount_ = new std::uint64_t(0);
-				if (ptr_)
-				{
-					++*weakCount_;
-				}
+				++*weakCount_;
+			}
+		}
+	}
+
+	template<typename T>
+	inline WeakPtr<T>::WeakPtr(const SharedPtr<T>& otherShared) noexcept
+		: ptr_(nullptr), refCount_(nullptr), weakCount_(nullptr)
+	{
+		ptr_ = otherShared.get();
+		refCount_ = otherShared.refCountPtr();
+		weakCount_ = new std::uint64_t(0);
+		if (ptr_)
+		{
+			++*weakCount_;
+		}
+	}
+
+	template<typename T>
+	template<typename U>
+	inline WeakPtr<T>::WeakPtr(const SharedPtr<U>& otherShared) noexcept
+		: ptr_(nullptr), refCount_(nullptr), weakCount_(nullptr)
+	{
+		if constexpr (std::is_convertible_v<U*, T*>)
+		{
+			ptr_ = otherShared.get();
+			refCount_ = otherShared.refCountPtr();
+			weakCount_ = new std::uint64_t(0);
+			if (ptr_)
+			{
+				++*weakCount_;
 			}
 		}
 	}
@@ -127,7 +162,7 @@ namespace SPTR
 	template<typename U>
 	inline WeakPtr<T>& WeakPtr<T>::operator=(const SharedPtr<U>& otherShared) noexcept
 	{
-		if constexpr (std::is_convertible_v<U, T>)
+		if constexpr (std::is_convertible_v<U*, T*>)
 		{
 			if (ptr_ != otherShared.get())
 			{
@@ -180,47 +215,76 @@ namespace SPTR
 	template<typename T>
 	inline WeakPtr<T>::~WeakPtr()
 	{
-		if (--*refCount_ == 0)
-		{
-			delete refCount_;
-			refCount_ = nullptr;
-		}
+		reset();
 	}
 
 	template<typename T>
-	inline SharedPtr<T> SPTR::WeakPtr<T>::lock() const noexcept
+	inline SharedPtr<T> SPTR::WeakPtr<T>::lock() noexcept
 	{
-		if (!expired())
+		auto newShared = SharedPtr<T>(ptr_);
+		if (!refCount_)
 		{
-			return SharedPtr<T>(ptr_);
+			refCount_ = new std::uint64_t(1);
 		}
+		else 
+		{
+			++*refCount_;
+		}
+		newShared.refCount_ = refCount_;
+		
+		if (!weakCount_)
+		{
+			weakCount_ = new std::uint64_t(1);
+		}
+		else
+		{
+			++*weakCount_;
+		}
+
+		return newShared;
 	}
 
 	template<typename T>
-	inline bool SPTR::WeakPtr<T>::expired() const noexcept
+	inline bool SPTR::WeakPtr<T>::expired() noexcept
 	{
-		return *refCount_ == 0;
+		if (refCount_)
+		{
+			if (*refCount_ == 0)
+			{
+				*weakCount_ = 0;
+				ptr_ = nullptr;
+				refCount_ = nullptr;
+				weakCount_ = nullptr;
+				return true;
+			}
+			return false;
+		}
+		return true;
 	}
 
 	template<typename T>
 	inline std::size_t SPTR::WeakPtr<T>::useCount() const noexcept
 	{
-		return *refCount_;
+		if (refCount_)
+		{
+			return *refCount_;
+		}
+		return std::size_t(0);
 	}
 
 	template<typename T>
 	inline void SPTR::WeakPtr<T>::reset() noexcept
 	{
-		if (--*weakCount_ == 0)
+		if (weakCount_)
 		{
-			delete weakCount_;
-			weakCount_ = nullptr;
+			if (--*weakCount_ == 0)
+			{
+				delete weakCount_;
+				weakCount_ = nullptr;
+			}
 		}
 		refCount_ = nullptr;
 		ptr_ = nullptr;
 	}
 
 } // end of WPTR
-
-// Countrol block
-// reset()

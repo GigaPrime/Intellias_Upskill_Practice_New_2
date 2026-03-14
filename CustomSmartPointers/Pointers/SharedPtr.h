@@ -14,6 +14,9 @@ namespace SPTR
 		T* ptr_ = nullptr;
 		std::uint64_t* refCount_ = new std::uint64_t(0);
 
+		template <typename T>
+		friend class WeakPtr;
+
 	public:
 		SharedPtr() noexcept = default;
 		explicit SharedPtr(std::nullptr_t) noexcept;
@@ -107,6 +110,13 @@ namespace SPTR
 	inline SharedPtr<T, Deleter>::~SharedPtr()
 	{
 		reset();
+		if (refCount_)
+		{
+			if (*refCount_ == 0)
+			{
+				delete refCount_;
+			}
+		}
 	}
 
 	template<typename T, typename Deleter>
@@ -183,7 +193,11 @@ namespace SPTR
 	template<typename T, typename Deleter>
 	inline std::uint64_t SharedPtr<T, Deleter>::refCount() const noexcept
 	{
-		return *refCount_;
+		if (refCount_)
+		{
+			return *refCount_;
+		}
+		return std::uint64_t(0);
 	}
 
 	// Non-member functions

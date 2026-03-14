@@ -49,25 +49,32 @@ namespace WeakPtrTests
         EXPECT_EQ(wPtr2.useCount(), 0);
     }
 
+    // std::weak_ptr<T> behavior allows creation pointers from pointers 
+    // with different though compatible types, however, compatibility 
+    // is meant in terms of inheritance because pointer-to-types
+    // should be compartible not the value-types (pointees) themselves
     TEST(WeakPtrTestCtorFromWeakPtr, ConstructFromOtherWeakPtrWithCompatibleType)
     {
-        SPTR::SharedPtr<std::byte> sPtr(new std::byte());
-        SPTR::WeakPtr<std::byte> wPtr1(sPtr);
-        SPTR::WeakPtr<char> wPtr2(wPtr1);
+        struct Base { virtual ~Base() = default; };
+        struct Derived : Base {};
 
-        /*EXPECT_FALSE(wPtr2.expired());
-        EXPECT_EQ(wPtr2.useCount(), 1);*/
+        SPTR::SharedPtr<Derived> sPtr(new Derived);
+        SPTR::WeakPtr<Derived> wPtr1(sPtr);
+        SPTR::WeakPtr<Base> wPtr2(wPtr1);
+
+        EXPECT_FALSE(wPtr2.expired());
+        EXPECT_EQ(wPtr2.useCount(), 1);
     }
 
-    /*TEST(WeakPtrTestCtorFromWeakPtr, ConstructFromOtherWeakPtrWithIncompatibleType)
+    TEST(WeakPtrTestCtorFromWeakPtr, ConstructFromOtherWeakPtrWithIncompatibleType)
     {
         SPTR::SharedPtr<std::byte> sPtr(new std::byte());
         SPTR::WeakPtr<std::byte> wPtr1(sPtr);
-        SPTR::WeakPtr<Beacon> wPtr2(wPtr1);
+        SPTR::WeakPtr<int> wPtr2(wPtr1);
 
         EXPECT_TRUE(wPtr2.expired());
         EXPECT_EQ(wPtr2.useCount(), 0);
-    }*/
+    }
 
     TEST(WeakPtrTestConstructionFromSharedPtr, ConstructFromSharedPtrWithValidPtr)
     {
@@ -121,8 +128,11 @@ namespace WeakPtrTests
 
     TEST(WeakPtrTestConstructionFromSharedPtr, ConstructFromSharedPtrWithCompatibleType)
     {
-        SPTR::SharedPtr<std::byte> sPtr(new std::byte());
-        SPTR::WeakPtr<char> wPtr(sPtr);
+        struct Base { virtual ~Base() = default; };
+        struct Derived : Base {};
+
+        SPTR::SharedPtr<Derived> sPtr(new Derived());
+        SPTR::WeakPtr<Base> wPtr(sPtr);
 
         EXPECT_FALSE(wPtr.expired());
         EXPECT_EQ(wPtr.useCount(), 1);
@@ -136,6 +146,64 @@ namespace WeakPtrTests
         EXPECT_TRUE(wPtr.expired());
         EXPECT_EQ(wPtr.useCount(), 0);
     }*/
+
+    TEST(WeakPtrTestConstructionFromSharedPtr, ConstructorWithValidSharedPtr)
+    {
+        SPTR::SharedPtr<int> sPtr(new int(100));
+        SPTR::WeakPtr<int> wPtr(sPtr);
+
+        EXPECT_FALSE(wPtr.expired());
+        EXPECT_EQ(wPtr.useCount(), 1);
+    }
+
+    TEST(WeakPtrTestConstructionFromSharedPtr, ConstructorWithNullSharedPtr)
+    {
+        SPTR::SharedPtr<int> sPtr;
+        SPTR::WeakPtr<int> wPtr(sPtr);
+
+        EXPECT_TRUE(wPtr.expired());
+        EXPECT_EQ(wPtr.useCount(), 0);
+    }
+
+    TEST(WeakPtrTestConstructionFromSharedPtr, ConstructorDoesNotIncreaseSharedRefCount)
+    {
+        SPTR::SharedPtr<int> sPtr(new int(42));
+        int refCountBefore = sPtr.refCount();
+
+        SPTR::WeakPtr<int> wPtr(sPtr);
+        int refCountAfter = sPtr.refCount();
+
+        EXPECT_EQ(refCountBefore, refCountAfter);
+        EXPECT_EQ(refCountAfter, 1);
+    }
+
+    TEST(WeakPtrTestConstructionFromSharedPtr, ConstructorSequentialCreation)
+    {
+        SPTR::SharedPtr<int> sPtr(new int(555));
+
+        SPTR::WeakPtr<int> wPtr1(sPtr);
+        EXPECT_FALSE(wPtr1.expired());
+        EXPECT_EQ(wPtr1.useCount(), 1);
+
+        SPTR::WeakPtr<int> wPtr2(sPtr);
+        EXPECT_FALSE(wPtr2.expired());
+        EXPECT_EQ(wPtr2.useCount(), 1);
+
+        SPTR::WeakPtr<int> wPtr3(sPtr);
+        EXPECT_FALSE(wPtr3.expired());
+        EXPECT_EQ(wPtr3.useCount(), 1);
+    }
+
+    TEST(WeakPtrTestConstructionFromSharedPtr, ConstructorAfterSharedPtrCopy)
+    {
+        SPTR::SharedPtr<int> sPtr1(new int(777));
+        SPTR::SharedPtr<int> sPtr2 = sPtr1;
+
+        SPTR::WeakPtr<int> wPtr(sPtr1);
+
+        EXPECT_FALSE(wPtr.expired());
+        EXPECT_EQ(wPtr.useCount(), 2);
+    }
 
     TEST(WeakPtrTestCopyCtor, CopyCtorFromAnotherWeakPtr)
     {
@@ -291,14 +359,14 @@ namespace WeakPtrTests
         EXPECT_EQ(lockedPtr.refCount(), 2);
     }
 
-    TEST(WeakPtrTestLock, LockReturnsNullSharedPtrWhenExpired)
+    TEST(WeakPtrTestLock, LockReturnsNullSharedPtrIfCreatedFromNullptr)
     {
         SPTR::WeakPtr<int> wPtr;
 
         SPTR::SharedPtr<int> lockedPtr = wPtr.lock();
 
         EXPECT_EQ(lockedPtr.get(), nullptr);
-        EXPECT_EQ(lockedPtr.refCount(), 0);
+        EXPECT_EQ(lockedPtr.refCount(), 1);
     }
 
     TEST(WeakPtrTestLock, LockReturnsNullSharedPtrWhenOwnerDestroyed)
@@ -308,6 +376,7 @@ namespace WeakPtrTests
 
         EXPECT_FALSE(wPtr.expired());
         EXPECT_EQ(Beacon::counter, 1);
+        EXPECT_EQ(wPtr.useCount(), 1);
 
         sPtr.reset();
 
