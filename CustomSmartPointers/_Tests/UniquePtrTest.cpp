@@ -269,19 +269,21 @@ namespace UniquePtrTests
 			std::bad_alloc);
 	}
 
-	struct ResourceByMalloc
-	{
-		int value = 42;
-		ResourceByMalloc() { std::cout << "ResourceByMalloc created"; }
-		~ResourceByMalloc() { std::cout << "ResourceByMalloc destroyed"; }
-	};
+struct ResourceByMalloc
+{
+    static inline int counter = 0;
+    int value = 42;
+    ResourceByMalloc() { ++counter; }
+    ~ResourceByMalloc() { --counter; }
+};
 
-	struct ResourceByNew
-	{
-		int value = 43;
-		ResourceByNew() { std::cout << "ResourceByNew created"; }
-		~ResourceByNew() { std::cout << "ResourceByNew destroyed"; }
-	};
+struct ResourceByNew
+{
+    static inline int counter = 0;
+    int value = 43;
+    ResourceByNew() { ++counter; }
+    ~ResourceByNew() { --counter; }
+};
 
 	template <typename T>
 	struct Deleter
@@ -306,27 +308,37 @@ namespace UniquePtrTests
 		}
 	};
 
-	TEST(CustomDeleter, UniquePtrWithCustomDeleterDeletesResource)
-	{
-		auto resource = std::construct_at(static_cast<ResourceByMalloc*>(
-			std::malloc(sizeof(ResourceByMalloc))), ResourceByMalloc());
-		Deleter<ResourceByMalloc> deleterForMalloc;
-		{
-			SPTR::UniquePtr<ResourceByMalloc, Deleter<ResourceByMalloc>> uPtr(resource);
-			EXPECT_EQ(uPtr->value, 42);
-			EXPECT_NO_THROW(uPtr.~UniquePtr()); // Explicitly calling destructor to test the custom deleter
-			EXPECT_EQ(uPtr.get(), nullptr); // After destructor, the pointer should be null
-		}
-	}
+    TEST(CustomDeleter, UniquePtrWithCustomDeleterDeletesResource)
+    {
+        auto resource = std::construct_at(static_cast<ResourceByMalloc*>(
+            std::malloc(sizeof(ResourceByMalloc))), ResourceByMalloc());
+        // resource constructed, counter should be 1
+        EXPECT_EQ(ResourceByMalloc::counter, 1);
 
-	TEST(CustomDeleter, UniquePtrWithDefaultDeleterDeletesResource)
-	{
-		auto resource = new ResourceByNew();
-		SPTR::UniquePtr<ResourceByNew, Deleter<ResourceByNew>> uPtr(resource);
-		EXPECT_EQ(uPtr->value, 43);
-		EXPECT_NO_THROW(uPtr.~UniquePtr()); // Explicitly calling destructor to test the custom deleter
-		EXPECT_EQ(uPtr.get(), nullptr); // After destructor, the pointer should be null
-	}
+        {
+            SPTR::UniquePtr<ResourceByMalloc, Deleter<ResourceByMalloc>> uPtr(resource);
+            EXPECT_EQ(uPtr->value, 42);
+            // let uPtr go out of scope to invoke the custom deleter
+        }
+
+        // after uPtr destruction deleter should have destroyed the resource
+        EXPECT_EQ(ResourceByMalloc::counter, 0);
+    }
+
+    TEST(CustomDeleter, UniquePtrWithDefaultDeleterDeletesResource)
+    {
+        auto resource = new ResourceByNew();
+        // resource constructed, counter should be 1
+        EXPECT_EQ(ResourceByNew::counter, 1);
+
+        {
+            SPTR::UniquePtr<ResourceByNew, Deleter<ResourceByNew>> uPtr(resource);
+            EXPECT_EQ(uPtr->value, 43);
+            // let uPtr go out of scope to invoke the custom deleter
+        }
+
+        EXPECT_EQ(ResourceByNew::counter, 0);
+    }
 
 	TEST(ComparisonOperators, ComparisonReturnsTrueIfEqualAndFalseIfNot)
 	{

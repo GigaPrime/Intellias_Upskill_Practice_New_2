@@ -138,14 +138,14 @@ namespace WeakPtrTests
         EXPECT_EQ(wPtr.useCount(), 1);
     }
 
-    /*TEST(WeakPtrTestConstructionFromSharedPtr, ConstructFromSharedPtrWithIncompatibleType)
+    TEST(WeakPtrTestConstructionFromSharedPtr, ConstructFromSharedPtrWithIncompatibleType)
     {
         SPTR::SharedPtr<std::byte> sPtr(new std::byte());
         SPTR::WeakPtr<Beacon> wPtr(sPtr);
 
         EXPECT_TRUE(wPtr.expired());
         EXPECT_EQ(wPtr.useCount(), 0);
-    }*/
+    }
 
     TEST(WeakPtrTestConstructionFromSharedPtr, ConstructorWithValidSharedPtr)
     {
@@ -259,33 +259,38 @@ namespace WeakPtrTests
         EXPECT_EQ(wPtr2.useCount(), 0);
     }
 
-    //TEST(WeakPtrTestMoveCtor, MoveCtorFromCompatibleType)
-    //{
-    //    SPTR::SharedPtr<int> sPtr(new int(42));
-    //    SPTR::WeakPtr<int> wPtr1(sPtr);
-
-    //    EXPECT_FALSE(wPtr1.expired());
-    //    EXPECT_EQ(wPtr1.useCount(), 1);
-
-    //    SPTR::WeakPtr<short> wPtr2(std::move(wPtr1));
-
-    //    EXPECT_FALSE(wPtr2.expired());
-    //    EXPECT_EQ(wPtr2.useCount(), 1);
-    //}
-
-    /*TEST(WeakPtrTestMoveCtor, MoveCtorFromIncompatibleType)
+    TEST(WeakPtrTestMoveCtor, MoveCtorFromCompatibleType)
     {
-        SPTR::SharedPtr<int> sPtr(new int(42));
-        SPTR::WeakPtr<int> wPtr1(sPtr);
+        struct Base { virtual ~Base() = default; };
+        struct Derived : Base {};
+
+        SPTR::SharedPtr<Derived> sPtr(new Derived);
+        SPTR::WeakPtr<Derived> wPtr1(sPtr);
 
         EXPECT_FALSE(wPtr1.expired());
         EXPECT_EQ(wPtr1.useCount(), 1);
 
-        SPTR::WeakPtr<Beacon> wPtr2(std::move(wPtr1));
+        SPTR::WeakPtr<Base> wPtr2(std::move(wPtr1));
+        
+        EXPECT_FALSE(wPtr2.expired());
+        EXPECT_EQ(wPtr2.useCount(), 1);
+    }
 
+    TEST(WeakPtrTestMoveCtor, MoveCtorFromIncompatibleType)
+    {
+        SPTR::SharedPtr<int> sPtr(new int(42));
+        SPTR::WeakPtr<int> wPtr1(sPtr);
+    
+        EXPECT_FALSE(wPtr1.expired());
+        EXPECT_EQ(wPtr1.useCount(), 1);
+    
+        SPTR::WeakPtr<short> wPtr2(std::move(wPtr1));
+    
+        EXPECT_FALSE(wPtr1.expired()); // wPtr1 was not moved
+        EXPECT_EQ(wPtr1.useCount(), 1); // same here
         EXPECT_TRUE(wPtr2.expired());
         EXPECT_EQ(wPtr2.useCount(), 0);
-    }*/
+    }
 
     TEST(WeakPtrTestCopyAssignment, CopyAssignmentFromSharedPtr)
     {

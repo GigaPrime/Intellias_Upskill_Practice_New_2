@@ -563,7 +563,7 @@ namespace SharedPtrTests
         EXPECT_FALSE(uPtr1 == uPtr2); // comparing with another unique_ptr
         EXPECT_FALSE(uPtr1 != uPtr1); // comparing with itself
         EXPECT_TRUE(uPtr1 != uPtr2); // comparing with another unique_ptr
-        EXPECT_TRUE(uPtr1 < uPtr2 || uPtr2 < uPtr1); // comparing addresses, one should be less than the other
+        EXPECT_TRUE(uPtr1 < uPtr2 || uPtr2 < uPtr1); // comparing addresses
         EXPECT_TRUE(uPtr1 > uPtr2 || uPtr2 > uPtr1);
         EXPECT_TRUE(uPtr1 <= uPtr2 || uPtr2 <= uPtr1);
         EXPECT_TRUE(uPtr1 >= uPtr2 || uPtr2 >= uPtr1);

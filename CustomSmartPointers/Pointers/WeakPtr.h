@@ -142,6 +142,21 @@ namespace SPTR
 	}
 
 	template<typename T>
+	template<typename U>
+	inline WeakPtr<T>::WeakPtr(WeakPtr<U>&& other) noexcept
+	{
+		if constexpr (std::is_convertible_v<U*, T*>)
+		{
+			ptr_ = other.ptr_;
+			refCount_ = other.refCount_;
+			weakCount_ = other.weakCount_;
+			other.ptr_ = nullptr;
+			other.refCount_ = nullptr;
+			other.weakCount_ = nullptr;
+		}
+	}
+
+	template<typename T>
 	inline WeakPtr<T>& WeakPtr<T>::operator=(const SharedPtr<T>& otherShared) noexcept
 	{
 		if (ptr_ != otherShared.get())
