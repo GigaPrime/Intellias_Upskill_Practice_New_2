@@ -13,12 +13,30 @@ namespace SPTR
 		};
 	} // end of detail
 
-	template <typename T, typename Deleter>	
-	struct ControlBlock
+	// Non-template base for control blocks. This allows storing a single
+	// pointer type in smart pointers and avoids invalid conversions between
+	// different ControlBlock<T> specializations.
+	struct ControlBlockBase
 	{
-		std::uint64_t refCount = 0;
-		std::uint64_t weakCount = 0;
-		T* ptr = nullptr;
-		// Destructor for the managed object with Deleter;
+		std::uint64_t refCount_ = 0;
+		std::uint64_t weakCount_ = 0;
+
+		virtual ~ControlBlockBase() = default;
+	};
+
+    template <typename T>
+	struct ControlBlock : public ControlBlockBase
+	{
+		T* ptr_ = nullptr;
+
+		~ControlBlock() override = default;
+	};
+
+	template <typename T>
+	struct IndexableControlBlock final : public ControlBlock<T>
+	{
+		std::uint64_t size_ = 0;
+
+		~IndexableControlBlock() = default;
 	};
 } // end of SPTR
