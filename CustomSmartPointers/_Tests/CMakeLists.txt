@@ -1,4 +1,4 @@
-set(GTEST_SOURCE_DIR ${CMAKE_SOURCE_DIR}/CustomSmartPointers/packages/googletest-main/googletest-main)
+set(GTEST_SOURCE_DIR ${CMAKE_SOURCE_DIR}/packages/googletest-main/googletest-main)
 
 if(EXISTS "${GTEST_SOURCE_DIR}/CMakeLists.txt")
   add_subdirectory("${GTEST_SOURCE_DIR}" "googletest" EXCLUDE_FROM_ALL)
@@ -17,7 +17,7 @@ target_include_directories(UnitTests PRIVATE
 )
 
 target_link_libraries(UnitTests PRIVATE 
-	Pointers gmock_main
+	Pointers gtest_main gmock_main
 )
 
 find_package(Threads REQUIRED)

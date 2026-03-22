@@ -3,7 +3,7 @@
 
 #include "UniquePtrTest.h"
 
-namespace UniquePtrTests 
+namespace UniquePtrTests
 {
 	namespace TypedTests
 	{
@@ -269,35 +269,61 @@ namespace UniquePtrTests
 			std::bad_alloc);
 	}
 
-struct ResourceByMalloc
-{
-    static inline int counter = 0;
-    int value = 42;
-    ResourceByMalloc() { ++counter; }
-    ~ResourceByMalloc() { --counter; }
-};
+	struct ResourceByMalloc
+	{
+		static inline int counter = 0;
+		int value = 42;
+		ResourceByMalloc() { ++counter; }
+		~ResourceByMalloc() { --counter; }
+	};
 
-struct ResourceByNew
-{
-    static inline int counter = 0;
-    int value = 43;
-    ResourceByNew() { ++counter; }
-    ~ResourceByNew() { --counter; }
-};
+	struct ResourceByNew
+	{
+		static inline int counter = 0;
+		int value = 43;
+		ResourceByNew() { ++counter; }
+		~ResourceByNew() { --counter; }
+	};
+
+	struct MockResourceByMallocDeleter
+	{
+		MOCK_METHOD(void, Delete, (ResourceByMalloc* ptr));
+	};
+
+	struct MockResourceByNewDeleter
+	{
+		MOCK_METHOD(void, Delete, (ResourceByNew* ptr));
+	};
 
 	template <typename T>
 	struct Deleter
 	{
+		inline static MockResourceByMallocDeleter* resourceByMallocMock = nullptr;
+		inline static MockResourceByNewDeleter* resourceByNewMock = nullptr;
+
 		void operator()(T* ptr) const
 		{
+			if (!ptr)
+			{
+				return;
+			}
+
 			if constexpr (std::is_same_v<T, ResourceByMalloc>)
 			{
+				if (resourceByMallocMock)
+				{
+					resourceByMallocMock->Delete(ptr);
+				}
 				std::cout << "Custom deleter for ResourceByMalloc called\n";
 				std::destroy_at(ptr);
 				std::free(ptr);
 			}
 			else if constexpr (std::is_same_v<T, ResourceByNew>)
 			{
+				if (resourceByNewMock)
+				{
+					resourceByNewMock->Delete(ptr);
+				}
 				std::cout << "Custom deleter for ResourceByNew called\n";
 				delete ptr;
 			}
@@ -308,37 +334,42 @@ struct ResourceByNew
 		}
 	};
 
-    TEST(CustomDeleter, UniquePtrWithCustomDeleterDeletesResource)
-    {
-        auto resource = std::construct_at(static_cast<ResourceByMalloc*>(
-            std::malloc(sizeof(ResourceByMalloc))), ResourceByMalloc());
-        // resource constructed, counter should be 1
-        EXPECT_EQ(ResourceByMalloc::counter, 1);
+	TEST(CustomDeleter, UniquePtrWithCustomDeleterDeletesResource)
+	{
+		auto* rawMemory = static_cast<ResourceByMalloc*>(std::malloc(sizeof(ResourceByMalloc)));
+		ASSERT_NE(rawMemory, nullptr);
+		auto* resource = std::construct_at(rawMemory);
 
-        {
-            SPTR::UniquePtr<ResourceByMalloc, Deleter<ResourceByMalloc>> uPtr(resource);
-            EXPECT_EQ(uPtr->value, 42);
-            // let uPtr go out of scope to invoke the custom deleter
-        }
+		MockResourceByMallocDeleter mockDeleter;
+		Deleter<ResourceByMalloc>::resourceByMallocMock = &mockDeleter;
 
-        // after uPtr destruction deleter should have destroyed the resource
-        EXPECT_EQ(ResourceByMalloc::counter, 0);
-    }
+		{
+			SPTR::UniquePtr<ResourceByMalloc, Deleter<ResourceByMalloc>> uPtr(resource);
+			EXPECT_EQ(uPtr->value, 42);
+			EXPECT_CALL(mockDeleter, Delete(resource)).Times(1);
+		}
 
-    TEST(CustomDeleter, UniquePtrWithDefaultDeleterDeletesResource)
-    {
-        auto resource = new ResourceByNew();
-        // resource constructed, counter should be 1
-        EXPECT_EQ(ResourceByNew::counter, 1);
+		Deleter<ResourceByMalloc>::resourceByMallocMock = nullptr;
+		EXPECT_EQ(ResourceByMalloc::counter, 0);
+	}
 
-        {
-            SPTR::UniquePtr<ResourceByNew, Deleter<ResourceByNew>> uPtr(resource);
-            EXPECT_EQ(uPtr->value, 43);
-            // let uPtr go out of scope to invoke the custom deleter
-        }
+	TEST(CustomDeleter, UniquePtrWithDefaultDeleterDeletesResource)
+	{
+		auto resource = new ResourceByNew();
+		EXPECT_EQ(ResourceByNew::counter, 1);
 
-        EXPECT_EQ(ResourceByNew::counter, 0);
-    }
+		MockResourceByNewDeleter mockDeleter;
+		Deleter<ResourceByNew>::resourceByNewMock = &mockDeleter;
+
+		{
+			SPTR::UniquePtr<ResourceByNew, Deleter<ResourceByNew>> uPtr(resource);
+			EXPECT_EQ(uPtr->value, 43);
+			EXPECT_CALL(mockDeleter, Delete(resource)).Times(1);
+		}
+
+		Deleter<ResourceByNew>::resourceByNewMock = nullptr;
+		EXPECT_EQ(ResourceByNew::counter, 0);
+	}
 
 	TEST(ComparisonOperators, ComparisonReturnsTrueIfEqualAndFalseIfNot)
 	{
