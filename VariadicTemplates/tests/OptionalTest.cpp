@@ -69,36 +69,6 @@ namespace VT
 		}
 	};
 
-	struct MultiArgTracker
-	{
-		static int ctorCounter_;
-		static int dtorCounter_;
-		static int aliveCounter_;
-
-		static void reset()
-		{
-			ctorCounter_ = 0;
-			dtorCounter_ = 0;
-			aliveCounter_ = 0;
-		}
-
-		int first_ = 0;
-		int second_ = 0;
-
-		MultiArgTracker(int first, int second)
-			: first_(first), second_(second)
-		{
-			++ctorCounter_;
-			++aliveCounter_;
-		}
-
-		~MultiArgTracker()
-		{
-			++dtorCounter_;
-			--aliveCounter_;
-		}
-	};
-
 	int Tracker::ctorCounter_ = 0;
 	int Tracker::dtorCounter_ = 0;
 	int Tracker::copyctorCounter_ = 0;
@@ -106,10 +76,6 @@ namespace VT
 	int Tracker::copyAssignCounter_ = 0;
 	int Tracker::moveAssignCount_ = 0;
 	int Tracker::aliveCounter_ = 0;
-
-	int MultiArgTracker::ctorCounter_ = 0;
-	int MultiArgTracker::dtorCounter_ = 0;
-	int MultiArgTracker::aliveCounter_ = 0;
 
 	TEST(OptionalTest, DefaultConstructedOptionalDoesNothing)
 	{
@@ -346,6 +312,40 @@ namespace VT
 		EXPECT_EQ(Tracker::dtorCounter_, 2);          // temporary + contained value
 	}
 
+	struct MultiArgTracker
+	{
+		static int ctorCounter_;
+		static int dtorCounter_;
+		static int aliveCounter_;
+
+		static void reset()
+		{
+			ctorCounter_ = 0;
+			dtorCounter_ = 0;
+			aliveCounter_ = 0;
+		}
+
+		int first_ = 0;
+		int second_ = 0;
+
+		MultiArgTracker(int first, int second)
+			: first_(first), second_(second)
+		{
+			++ctorCounter_;
+			++aliveCounter_;
+		}
+
+		~MultiArgTracker()
+		{
+			++dtorCounter_;
+			--aliveCounter_;
+		}
+	};
+
+	int MultiArgTracker::ctorCounter_ = 0;
+	int MultiArgTracker::dtorCounter_ = 0;
+	int MultiArgTracker::aliveCounter_ = 0;
+
 	TEST(OptionalTest, ForwardingConstructorSupportsMultipleArguments)
 	{
 		MultiArgTracker::reset();
@@ -359,5 +359,113 @@ namespace VT
 
 		EXPECT_EQ(MultiArgTracker::aliveCounter_, 0);
 		EXPECT_EQ(MultiArgTracker::dtorCounter_, 1);
+	}
+
+	TEST(OptionalTest, VariadicConstructorCopiesFromLvalueTracker)
+	{
+		Tracker::reset();
+		Tracker source(42);
+
+		EXPECT_EQ(Tracker::ctorCounter_, 1);
+		EXPECT_EQ(Tracker::aliveCounter_, 1);
+
+		{
+			VT::Optional<Tracker> opt(source);
+
+			EXPECT_EQ(Tracker::ctorCounter_, 1);
+			EXPECT_EQ(Tracker::copyctorCounter_, 1);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 2);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
+		}
+
+		EXPECT_EQ(Tracker::aliveCounter_, 1);
+		EXPECT_EQ(Tracker::dtorCounter_, 1);
+	}
+
+	TEST(OptionalTest, VariadicConstructorMovesFromRvalueTracker)
+	{
+		Tracker::reset();
+
+		{
+			VT::Optional<Tracker> opt(Tracker(77));
+
+			EXPECT_EQ(Tracker::ctorCounter_, 1);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 1);
+			EXPECT_EQ(Tracker::dtorCounter_, 1);   // temporary destroyed
+			EXPECT_EQ(Tracker::aliveCounter_, 1);  // only value in Optional remains alive
+		}
+
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 2);
+	}
+
+	TEST(OptionalTest, VariadicConstructorBuildsTrackerFromInt)
+	{
+		Tracker::reset();
+
+		{
+			VT::Optional<Tracker> opt(123);
+
+			EXPECT_EQ(Tracker::ctorCounter_, 1);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 1);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
+		}
+
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 1);
+	}
+
+	struct PairTracker
+	{
+		static int ctorCounter_;
+		static int dtorCounter_;
+		static int aliveCounter_;
+
+		static void reset()
+		{
+			ctorCounter_ = 0;
+			dtorCounter_ = 0;
+			aliveCounter_ = 0;
+		}
+
+		int first_ = 0;
+		int second_ = 0;
+
+		PairTracker(int first, int second)
+			: first_(first), second_(second)
+		{
+			++ctorCounter_;
+			++aliveCounter_;
+		}
+
+		~PairTracker()
+		{
+			++dtorCounter_;
+			--aliveCounter_;
+		}
+	};
+
+	int PairTracker::ctorCounter_ = 0;
+	int PairTracker::dtorCounter_ = 0;
+	int PairTracker::aliveCounter_ = 0;
+
+	TEST(OptionalTest, VariadicConstructorForwardsMultipleArguments)
+	{
+		PairTracker::reset();
+
+		{
+			VT::Optional<PairTracker> opt(10, 20);
+
+			EXPECT_EQ(PairTracker::ctorCounter_, 1);
+			EXPECT_EQ(PairTracker::aliveCounter_, 1);
+			EXPECT_EQ(PairTracker::dtorCounter_, 0);
+		}
+
+		EXPECT_EQ(PairTracker::aliveCounter_, 0);
+		EXPECT_EQ(PairTracker::dtorCounter_, 1);
 	}
 }

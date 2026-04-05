@@ -68,8 +68,6 @@ namespace VT
 		>
 		Optional(Args&&... args);
 
-		//Optional<T>(T value);
-
 		Optional& operator=(const NullOptionalType& type);
 		Optional& operator=(const Optional& other);
 		Optional& operator=(Optional&& other);
