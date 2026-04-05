@@ -1,22 +1,21 @@
 #include "../src/Optional.h"
 
-#include "../packages/googletest/include/gtest/gtest.h"
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 namespace VT
 {
 	struct Tracker
 	{
-		int ctorCounter_ = 0;
-		int dtorCounter_ = 0;
-		int copyctorCounter_ = 0;
-		int movectorCounter_ = 0;
-		int copyAssignCounter_ = 0;
-		int moveAssignCount_ = 0;
-		int aliveCounter_ = 0;
+		static int ctorCounter_;
+		static int dtorCounter_;
+		static int copyctorCounter_;
+		static int movectorCounter_;
+		static int copyAssignCounter_;
+		static int moveAssignCount_;
+		static int aliveCounter_;
 
-		int value = 0;
-
-		void reset()
+		static void reset()
 		{
 			ctorCounter_ = 0;
 			dtorCounter_ = 0;
@@ -27,36 +26,38 @@ namespace VT
 			aliveCounter_ = 0;
 		}
 
-		Tracker(int v = 0) : value(v)
+		int value_ = 0;
+
+		Tracker(int value = 0) : value_(value)
 		{
 			++ctorCounter_;
 			++aliveCounter_;
 		}
 
-		Tracker(const Tracker& other) : value(other.value)
+		Tracker(const Tracker& other) : value_(other.value_)
 		{
 			++copyctorCounter_;
 			++aliveCounter_;
 		}
 
-		Tracker(Tracker&& other) noexcept : value(other.value)
+		Tracker(Tracker&& other) noexcept : value_(other.value_)
 		{
-			other.value = -1;
+			other.value_ = -1;
 			++movectorCounter_;
 			++aliveCounter_;
 		}
 
 		Tracker& operator=(const Tracker& other)
 		{
-			value = other.value;
+			value_ = other.value_;
 			++copyAssignCounter_;
 			return *this;
 		}
 
 		Tracker& operator=(Tracker&& other) noexcept
 		{
-			value = other.value;
-			other.value = -1;
+			value_ = other.value_;
+			other.value_ = -1;
 			++moveAssignCount_;
 			return *this;
 		}
@@ -68,185 +69,295 @@ namespace VT
 		}
 	};
 
+	struct MultiArgTracker
+	{
+		static int ctorCounter_;
+		static int dtorCounter_;
+		static int aliveCounter_;
+
+		static void reset()
+		{
+			ctorCounter_ = 0;
+			dtorCounter_ = 0;
+			aliveCounter_ = 0;
+		}
+
+		int first_ = 0;
+		int second_ = 0;
+
+		MultiArgTracker(int first, int second)
+			: first_(first), second_(second)
+		{
+			++ctorCounter_;
+			++aliveCounter_;
+		}
+
+		~MultiArgTracker()
+		{
+			++dtorCounter_;
+			--aliveCounter_;
+		}
+	};
+
+	int Tracker::ctorCounter_ = 0;
+	int Tracker::dtorCounter_ = 0;
+	int Tracker::copyctorCounter_ = 0;
+	int Tracker::movectorCounter_ = 0;
+	int Tracker::copyAssignCounter_ = 0;
+	int Tracker::moveAssignCount_ = 0;
+	int Tracker::aliveCounter_ = 0;
+
+	int MultiArgTracker::ctorCounter_ = 0;
+	int MultiArgTracker::dtorCounter_ = 0;
+	int MultiArgTracker::aliveCounter_ = 0;
+
 	TEST(OptionalTest, DefaultConstructedOptionalDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> opt;
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.ctorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, NullOptionalConstructorDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> opt(VT::NullOptionalType::getNullOptionalType());
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.ctorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, CopyConstructEmptyOptionalDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> src;
 			VT::Optional<Tracker> dst(src);
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.ctorCounter_, 0);
-			EXPECT_EQ(tracker.copyctorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, MoveConstructEmptyOptionalDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> src;
 			VT::Optional<Tracker> dst(std::move(src));
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.ctorCounter_, 0);
-			EXPECT_EQ(tracker.movectorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, ConvertingCopyConstructEmptyOptionalDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<int> src;
 			VT::Optional<Tracker> dst(src);
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.ctorCounter_, 0);
-			EXPECT_EQ(tracker.copyctorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, ConvertingMoveConstructEmptyOptionalDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<int> src;
 			VT::Optional<Tracker> dst(std::move(src));
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.ctorCounter_, 0);
-			EXPECT_EQ(tracker.movectorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, AssignNullToEmptyOptionalDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> opt;
 			opt = VT::NullOptionalType::getNullOptionalType();
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.ctorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, CopyAssignEmptyToEmptyDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> src;
 			VT::Optional<Tracker> dst;
 
 			dst = src;
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.copyAssignCounter_, 0);
-			EXPECT_EQ(tracker.copyctorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::copyAssignCounter_, 0);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, MoveAssignEmptyToEmptyDoesNothing)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> src;
 			VT::Optional<Tracker> dst;
 
 			dst = std::move(src);
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.moveAssignCount_, 0);
-			EXPECT_EQ(tracker.movectorCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::moveAssignCount_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, SelfCopyAssignEmptyIsSafe)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> opt;
 			opt = opt;
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.copyAssignCounter_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::copyAssignCounter_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
 	}
 
 	TEST(OptionalTest, SelfMoveAssignEmptyIsSafe)
 	{
-		Tracker tracker;
-		tracker.reset();
+		Tracker::reset();
 		{
 			VT::Optional<Tracker> opt;
 			opt = std::move(opt);
 
-			EXPECT_EQ(tracker.aliveCounter_, 0);
-			EXPECT_EQ(tracker.moveAssignCount_, 0);
-			EXPECT_EQ(tracker.dtorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 0);
+			EXPECT_EQ(Tracker::moveAssignCount_, 0);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
 		}
-		EXPECT_EQ(tracker.aliveCounter_, 0);
-		EXPECT_EQ(tracker.dtorCounter_, 0);
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 0);
+	}
+
+	TEST(OptionalTest, ForwardingConstructorConstructsContainedValueFromDirectArgs)
+	{
+		Tracker::reset();
+		{
+			VT::Optional<Tracker> opt(123);
+
+			EXPECT_EQ(Tracker::ctorCounter_, 1);
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 1);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
+		}
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 1);
+	}
+
+	TEST(OptionalTest, ForwardingConstructorCopiesFromLvalueArgument)
+	{
+		Tracker source(55);
+		Tracker::ctorCounter_ = 0;
+		Tracker::dtorCounter_ = 0;
+		Tracker::copyctorCounter_ = 0;
+		Tracker::movectorCounter_ = 0;
+		Tracker::copyAssignCounter_ = 0;
+		Tracker::moveAssignCount_ = 0;
+		Tracker::aliveCounter_ = 1; // source is alive
+
+		{
+			VT::Optional<Tracker> opt(source);
+
+			EXPECT_EQ(Tracker::ctorCounter_, 0);
+			EXPECT_EQ(Tracker::copyctorCounter_, 1);
+			EXPECT_EQ(Tracker::movectorCounter_, 0);
+			EXPECT_EQ(Tracker::aliveCounter_, 2);
+			EXPECT_EQ(Tracker::dtorCounter_, 0);
+		}
+
+		EXPECT_EQ(Tracker::aliveCounter_, 1);
+		EXPECT_EQ(Tracker::dtorCounter_, 1);
+	}
+
+	TEST(OptionalTest, ForwardingConstructorMovesFromRvalueArgument)
+	{
+		Tracker::reset();
+		{
+			VT::Optional<Tracker> opt(Tracker(77));
+
+			EXPECT_EQ(Tracker::ctorCounter_, 1);      // temporary Tracker(77)
+			EXPECT_EQ(Tracker::copyctorCounter_, 0);
+			EXPECT_EQ(Tracker::movectorCounter_, 1);  // moved into Optional storage
+			EXPECT_EQ(Tracker::aliveCounter_, 1);     // temporary destroyed, Optional value alive
+			EXPECT_EQ(Tracker::dtorCounter_, 1);      // temporary already destroyed
+		}
+
+		EXPECT_EQ(Tracker::aliveCounter_, 0);
+		EXPECT_EQ(Tracker::dtorCounter_, 2);          // temporary + contained value
+	}
+
+	TEST(OptionalTest, ForwardingConstructorSupportsMultipleArguments)
+	{
+		MultiArgTracker::reset();
+		{
+			VT::Optional<MultiArgTracker> opt(10, 20);
+
+			EXPECT_EQ(MultiArgTracker::ctorCounter_, 1);
+			EXPECT_EQ(MultiArgTracker::aliveCounter_, 1);
+			EXPECT_EQ(MultiArgTracker::dtorCounter_, 0);
+		}
+
+		EXPECT_EQ(MultiArgTracker::aliveCounter_, 0);
+		EXPECT_EQ(MultiArgTracker::dtorCounter_, 1);
 	}
 }

@@ -1,27 +1,26 @@
-set(GTEST_SOURCE_DIR ${CMAKE_SOURCE_DIR}/packages)
-target_compile_features(src INTERFACE cxx_std_17)
+include(FetchContent)
 
-if(EXISTS "${GTEST_SOURCE_DIR}/CMakeLists.txt")
-  add_subdirectory("${GTEST_SOURCE_DIR}" "googletest" EXCLUDE_FROM_ALL)
-else()
-  message(FATAL_ERROR "Local googletest not found at ${GTEST_SOURCE_DIR}")
-endif()
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+)
+
+FetchContent_MakeAvailable(googletest)
 
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "*.cpp")
 
-add_executable(UnitTests
-    ${TEST_SOURCES}
-)
+add_executable(UnitTests ${TEST_SOURCES})
 
 target_link_libraries(UnitTests PRIVATE
-    src
-    gtest_main
+    VT::optional
+    GTest::gtest
+    GTest::gmock
+    GTest::gtest_main
 )
+
+target_compile_features(UnitTests PRIVATE cxx_std_17)
 
 include(GoogleTest)
 gtest_discover_tests(UnitTests)
-
-find_package(Threads REQUIRED)
-if(Threads_FOUND)
-  target_link_libraries(UnitTests PRIVATE Threads::Threads)
-endif()

@@ -24,8 +24,8 @@ namespace VT
 
 		static NullOptionalType& getNullOptionalType()
 		{
-			static NullOptionalType type;
-			return type;
+			static NullOptionalType type_;
+			return type_;
 		}
 	};
 
@@ -33,8 +33,8 @@ namespace VT
 	class Optional
 	{
 	private:
-		alignas(T) std::byte storage[sizeof(T)];
-		bool exists = false;
+		alignas(T) std::byte storage_[sizeof(T)];
+		bool exists_ = false;
 
 		template <typename>
 		friend class Optional;
@@ -62,14 +62,12 @@ namespace VT
 			= std::enable_if_t<std::is_constructible_v<T, U&&>>>
 		Optional(Optional<U>&& other);
 
-		//template <typename... Args, typename std::enable_if_t<std::is_constructible_v<T, Args&& ...>>>
-		//Optional(Args&& ... args)
-		//{
-		//	new(&storage[0]) T(std::forward<Args>(args)...);
-		//	exists = true;
-		//}
+		template <
+			typename... Args,
+			typename = std::enable_if_t<std::is_constructible_v<T, Args&&...>>
+		>
+		Optional(Args&&... args);
 
-		//Optional<T>(Args&& ... args);
 		//Optional<T>(T value);
 
 		Optional& operator=(const NullOptionalType& type);
@@ -81,26 +79,26 @@ namespace VT
 
 	template <typename T>
 	inline Optional<T>::Optional(const NullOptionalType&) noexcept
-		: exists(false)
+		: exists_(false)
 	{}
 
 	template <typename T>
 	inline Optional<T>::Optional(const Optional<T>& other)
 	{
-		if (other.exists)
+		if (other.exists_)
 		{
-			new(&storage[0]) T(*reinterpret_cast<const T*>(&other.storage[0]));
-			exists = true;
+			new(&storage_[0]) T(*reinterpret_cast<const T*>(&other.storage_[0]));
+			exists_ = true;
 		}
 	}
 
 	template <typename T>
 	inline Optional<T>::Optional(Optional&& other)
 	{
-		if (other.exists)
+		if (other.exists_)
 		{
-			new(&storage[0]) T(std::move(*reinterpret_cast<T*>(&other.storage[0])));
-			exists = true;
+			new(&storage_[0]) T(std::move(*reinterpret_cast<T*>(&other.storage_[0])));
+			exists_ = true;
 		}
 	}
 
@@ -108,10 +106,10 @@ namespace VT
 	template <typename U, typename>
 	inline Optional<T>::Optional(const Optional<U>& other)
 	{
-		if (other.exists)
+		if (other.exists_)
 		{
-			new(&storage[0]) T(*reinterpret_cast<const U*>(&other.storage[0]));
-			exists = true;
+			new(&storage_[0]) T(*reinterpret_cast<const U*>(&other.storage_[0]));
+			exists_ = true;
 		}
 	}
 
@@ -119,20 +117,28 @@ namespace VT
 	template <typename U, typename>
 	inline Optional<T>::Optional(Optional<U>&& other)
 	{
-		if (other.exists)
+		if (other.exists_)
 		{
-			new(&storage[0]) T(std::move(*reinterpret_cast<U*>(&other.storage[0])));
-			exists = true;
+			new(&storage_[0]) T(std::move(*reinterpret_cast<U*>(&other.storage_[0])));
+			exists_ = true;
 		}
+	}
+
+	template<typename T>
+	template<typename ...Args, typename>
+	inline Optional<T>::Optional(Args && ...args)
+	{
+		new(&storage_[0]) T(std::forward<Args>(args)...);
+		exists_ = true;
 	}
 
 	template <typename T>
 	inline Optional<T>& Optional<T>::operator=(const NullOptionalType&)
 	{
-		if (exists)
+		if (exists_)
 		{
-			reinterpret_cast<T*>(&storage[0])->~T();
-			exists = false;
+			reinterpret_cast<T*>(&storage_[0])->~T();
+			exists_ = false;
 		}
 		return *this;
 	}
@@ -145,20 +151,20 @@ namespace VT
 			return *this;
 		}
 
-		if (exists && other.exists)
+		if (exists_ && other.exists_)
 		{
-			*reinterpret_cast<T*>(&storage[0]) =
-				*reinterpret_cast<const T*>(&other.storage[0]);
+			*reinterpret_cast<T*>(&storage_[0]) =
+				*reinterpret_cast<const T*>(&other.storage_[0]);
 		}
-		else if (exists && !other.exists)
+		else if (exists_ && !other.exists_)
 		{
-			reinterpret_cast<T*>(&storage[0])->~T();
-			exists = false;
+			reinterpret_cast<T*>(&storage_[0])->~T();
+			exists_ = false;
 		}
-		else if (!exists && other.exists)
+		else if (!exists_ && other.exists_)
 		{
-			new(&storage[0]) T(*reinterpret_cast<const T*>(&other.storage[0]));
-			exists = true;
+			new(&storage_[0]) T(*reinterpret_cast<const T*>(&other.storage_[0]));
+			exists_ = true;
 		}
 
 		return *this;
@@ -172,20 +178,20 @@ namespace VT
 			return *this;
 		}
 
-		if (exists && other.exists)
+		if (exists_ && other.exists_)
 		{
-			*reinterpret_cast<T*>(&storage[0]) =
-				std::move(*reinterpret_cast<T*>(&other.storage[0]));
+			*reinterpret_cast<T*>(&storage_[0]) =
+				std::move(*reinterpret_cast<T*>(&other.storage_[0]));
 		}
-		else if (exists && !other.exists)
+		else if (exists_ && !other.exists_)
 		{
-			reinterpret_cast<T*>(&storage[0])->~T();
-			exists = false;
+			reinterpret_cast<T*>(&storage_[0])->~T();
+			exists_ = false;
 		}
-		else if (!exists && other.exists)
+		else if (!exists_ && other.exists_)
 		{
-			new(&storage[0]) T(std::move(*reinterpret_cast<T*>(&other.storage[0])));
-			exists = true;
+			new(&storage_[0]) T(std::move(*reinterpret_cast<T*>(&other.storage_[0])));
+			exists_ = true;
 		}
 
 		return *this;
@@ -194,10 +200,10 @@ namespace VT
 	template <typename T>
 	inline Optional<T>::~Optional()
 	{
-		if (exists)
+		if (exists_)
 		{
-			reinterpret_cast<T*>(&storage[0])->~T();
-			exists = false;
+			reinterpret_cast<T*>(&storage_[0])->~T();
+			exists_ = false;
 		}
 	}
 }
