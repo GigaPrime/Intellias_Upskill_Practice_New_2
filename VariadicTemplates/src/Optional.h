@@ -7,6 +7,9 @@
 
 namespace VT
 {
+	// has_value
+	// in-place construction
+
 	class NullOptionalType
 	{
 	private:
@@ -36,7 +39,6 @@ namespace VT
 		template <typename>
 		friend class Optional;
 
-	private:
 		template <typename U>
 		struct IsOptional : std::false_type
 		{};
@@ -60,7 +62,15 @@ namespace VT
 			= std::enable_if_t<std::is_constructible_v<T, U&&>>>
 		Optional(Optional<U>&& other);
 
+		//template <typename... Args, typename std::enable_if_t<std::is_constructible_v<T, Args&& ...>>>
+		//Optional(Args&& ... args)
+		//{
+		//	new(&storage[0]) T(std::forward<Args>(args)...);
+		//	exists = true;
+		//}
+
 		//Optional<T>(Args&& ... args);
+		//Optional<T>(T value);
 
 		Optional& operator=(const NullOptionalType& type);
 		Optional& operator=(const Optional& other);

@@ -1,4 +1,5 @@
 set(GTEST_SOURCE_DIR ${CMAKE_SOURCE_DIR}/packages)
+target_compile_features(src INTERFACE cxx_std_17)
 
 if(EXISTS "${GTEST_SOURCE_DIR}/CMakeLists.txt")
   add_subdirectory("${GTEST_SOURCE_DIR}" "googletest" EXCLUDE_FROM_ALL)
