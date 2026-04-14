@@ -28,12 +28,14 @@ namespace VT
 
 		Head head_;
 	public:
+		using Parent = Tuple<Tail...>;
+
 		Tuple() = default;
 		Tuple(const Head& head, const Tail&... tail) noexcept;
 		Tuple(const Tuple& other);
 		Tuple(Tuple&& other) ;
-		Tuple& operator=(const Tuple& other) ;
-		Tuple& operator=(Tuple&& other) ;
+		Tuple& operator=(const Tuple& other);
+		Tuple& operator=(Tuple&& other);
 
 		void swap(Tuple& other);
 		// Not a member function, but a free function that creates a tuple from given arguments
@@ -135,8 +137,6 @@ namespace VT
 		{
 			return static_cast<const Tuple<Tail...>&>(*this) < static_cast<const Tuple<Tail...>&>(other);
 		}
-		
-		return false;
 	}
 
 	template<typename Head, typename ...Tail>
@@ -182,10 +182,26 @@ namespace VT
 		static typeAtIndex()
 	};
 
-
+	//typeAtIndex<Index>(Types)::get<Index>(Tuple<Tail>)
 
 
 	template <std::size_t index, typename... Types>
 	typename type_at_index<index, Types...>::type& get(Tuple<Types...>& tuple);
+
+
+	//template<typename Type, typename T>
+	//decltype auto& get<size_t>(const T& tuple)
+	//if constexpr (is_same_v(Type, decltype(head_) + remove_cv_reference)) // or declval just out of curiosity
+
+	template<size_t Index, typename T>
+	decltype auto& get<size_t>(const T& tuple) 
+	{
+		if constexpr (Index == 0)
+		{
+			return T.head_;
+		}
+
+		return get<Index - 1>(static_cast<const T::Parent&> tuple);
+	}
 
 } // namespace VT
