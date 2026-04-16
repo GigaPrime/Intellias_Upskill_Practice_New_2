@@ -17,14 +17,39 @@ namespace VT
 	class Tuple;
 
 	template <>
-	class Tuple<>{};
-	
+	class Tuple<>
+	{
+	public:
+		bool operator==(const Tuple&) const { return true; }
+		bool operator!=(const Tuple&) const { return false; }
+		bool operator<(const Tuple&) const { return false; }
+		bool operator>(const Tuple&) const { return false; }
+		bool operator<=(const Tuple&) const { return true; }
+		bool operator>=(const Tuple&) const { return true; }
+	};
+
+	// Forward declaration of helper struct and get(...)
+	template <std::size_t Index, typename... Types>
+	struct TypeAtIndex;
+
+	template <std::size_t Index, typename... Types>
+	typename TypeAtIndex<Index, Types...>::type& get(Tuple<Types...>& tuple);
+
+	template <std::size_t Index, typename... Types>
+	const typename TypeAtIndex<Index, Types...>::type& get(const Tuple<Types...>& tuple);
+
 	template <typename Head, typename... Tail>
 	class Tuple<Head, Tail...> : public Tuple<Tail...>
 	{
 	private:
 		template <typename... Tail>
 		friend class Tuple;
+
+		template <std::size_t Index, typename... Types>
+		friend typename TypeAtIndex<Index, Types...>::type& get(Tuple<Types...>& tuple);
+
+		template <std::size_t Index, typename... Types>
+		friend const typename TypeAtIndex<Index, Types...>::type& get(const Tuple<Types...>& tuple);
 
 		Head head_;
 	public:
@@ -176,32 +201,43 @@ namespace VT
 	// Non-member functions
 
 	template <std::size_t Index, typename... Types>
-	class TypeAtIndex 
+	struct TypeAtIndex;
+
+	template <typename Head, typename... Tail>
+	struct TypeAtIndex<0, Head, Tail...>
 	{
-	public:
-		static typeAtIndex()
+		using type = Head;
 	};
 
-	//typeAtIndex<Index>(Types)::get<Index>(Tuple<Tail>)
+	template <std::size_t Index, typename Head, typename... Tail>
+	struct TypeAtIndex<Index, Head, Tail...>
+	{
+		using type = typename TypeAtIndex<Index - 1, Tail...>::type;
+	};
 
-
-	template <std::size_t index, typename... Types>
-	typename type_at_index<index, Types...>::type& get(Tuple<Types...>& tuple);
-
-
-	//template<typename Type, typename T>
-	//decltype auto& get<size_t>(const T& tuple)
-	//if constexpr (is_same_v(Type, decltype(head_) + remove_cv_reference)) // or declval just out of curiosity
-
-	template<size_t Index, typename T>
-	decltype auto& get<size_t>(const T& tuple) 
+	template <std::size_t Index, typename... Types>
+	typename TypeAtIndex<Index, Types...>::type& get(Tuple<Types...>& tuple)
 	{
 		if constexpr (Index == 0)
 		{
-			return T.head_;
+			return tuple.head_;
 		}
-
-		return get<Index - 1>(static_cast<const T::Parent&> tuple);
+		else
+		{
+			return get<Index - 1>(static_cast<Tuple<Types...>::Parent&>(tuple));
+		}
 	}
 
+	template <std::size_t Index, typename... Types>
+	const typename TypeAtIndex<Index, Types...>::type& get(const Tuple<Types...>& tuple)
+	{
+		if constexpr (Index == 0)
+		{
+			return tuple.head_;
+		}
+		else
+		{
+			return get<Index - 1>(static_cast<const Tuple<Types...>::Parent&>(tuple));
+		}
+	}
 } // namespace VT
