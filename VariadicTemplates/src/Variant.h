@@ -23,9 +23,6 @@ namespace VT
 	constexpr std::size_t GetLargestSize();
 
 	template<typename... Types>
-	constexpr std::size_t GetLargestSize();
-
-	template<typename... Types>
 	constexpr std::size_t GetLargestAlignment();
 
 	template <typename... Types>
@@ -38,6 +35,9 @@ namespace VT
 
 		template <typename... Types>
 		friend class Variant;
+
+		template<std::size_t Index>
+		friend constexpr typename CPTypeAtIndex<Index, Types...>::type& get(Variant<Types...>& variant);
 
 		void destroy();
 
@@ -54,6 +54,7 @@ namespace VT
 		~Variant();
 
 		void swap(Variant& other);
+		std::size_t index() const;
 
 		bool operator==(const Variant& other) const;
 		bool operator!=(const Variant& other) const;
@@ -85,26 +86,29 @@ namespace VT
 	template <typename T, std::size_t Index, typename Head, typename... Tail>
 	struct CPIndexAtType<T, Index, Head, Tail...>
 	{
-		static constexpr std::size_t value = 
-			std::is_same<T, Head>::value ? Index : CPIndexAtType<T, Index + 1, Tail...>::value;
+		static constexpr std::size_t getIndex()
+		{
+			if constexpr (std::is_same<T, Head>::value)
+			{
+				return Index;
+			}
+			else
+			{
+				return CPIndexAtType<T, Index + 1, Tail...>::getIndex();
+			}
+		}
 	};
 
 	template <typename T, std::size_t Index>
 	struct CPIndexAtType<T, Index>
 	{
-		// Force compile error
-		static_assert(sizeof(T) == 0, "Type not found in Variant type list");
-		static constexpr std::size_t value = 0; // Type not found
-	};
-
-	// This is agly. Second template param is not needed at all. 
-	// Compile error happens without it since it would be incorrect partial template specialization
-	// The param is not used
-	// To fix this a separate (not a partial specialization for CPIndexAtType) struct should be introduced
-	template <typename T, std::size_t Index, typename... Types>
-	struct CPIndexAtType
-	{
-		static constexpr std::size_t value = CPIndexAtType<T, 0, Types...>::value;
+		static constexpr std::size_t getIndex()
+		{
+			// Force compile error
+			static_assert(sizeof(T) == 0, "Type not found in Variant type list");
+			static constexpr std::size_t index = 0; // Type not found
+			return index;
+		}	
 	};
 
 	template <std::size_t Index, typename... Types>
@@ -136,6 +140,8 @@ namespace VT
 		}
 	};
 
+	// alignas can't be used here since arrays should be passed here not the storage itself.
+	// That's why the storage is passed as a pointer.
 	template <std::size_t Index, typename Head, typename... Types>
 	struct RTTypeAtIndex<Index, Head, Types...>
 	{
@@ -185,6 +191,46 @@ namespace VT
 		}
 	};
 
+	template<std::size_t Index, typename... Types>
+	struct RTValueAtIndex
+	{
+		static_assert(Index != Index, "Index out of range in Variant type list");
+	};
+
+	template<typename Head, typename... Types>
+	struct RTValueAtIndex<0, Head, Types...>
+	{
+		using type = Head;
+
+		static constexpr type* getValue(std::byte* storage)
+		{
+			return reinterpret_cast<type*>(storage);
+		}
+
+		static constexpr const type* getValue(const std::byte* storage)
+		{
+			return reinterpret_cast<const type*>(storage);
+		}
+	};
+
+	template<std::size_t Index, typename Head, typename... Types>
+	struct RTValueAtIndex<Index, Head, Types...>
+	{
+		static_assert(Index <= sizeof...(Types), "Index out of range in Variant type list");
+
+		using type = typename RTValueAtIndex<Index - 1, Types...>::type;
+
+		static constexpr type* getValue(std::byte* storage)
+		{
+			return RTValueAtIndex<Index - 1, Types...>::getValue(storage);
+		}
+
+		static constexpr const type* getValue(const std::byte* storage)
+		{
+			return RTValueAtIndex<Index - 1, Types...>::getValue(storage);
+		}
+	};
+
 	/// Get the largest size among all types
 	template<typename... Types>
 	constexpr std::size_t GetLargestSize()
@@ -198,6 +244,26 @@ namespace VT
 	{
 		return std::max({alignof(Types)...});
 	}
+
+	template<typename T, typename... Types >
+	bool holdsAlternative(const Variant<Types...>& variant)
+	{
+		return variant.index() == CPIndexAtType<T, 0, Types...>::getIndex();
+	}
+
+	template<std::size_t Index, typename... Types>
+	constexpr typename CPTypeAtIndex<Index, Types...>::type& get(Variant<Types...>& variant)
+	{
+		if (variant.index() != Index)
+		{
+			throw std::runtime_error("Variant does not hold the requested type");
+		}
+
+		using Type = typename CPTypeAtIndex<Index, Types...>::type;
+		return *reinterpret_cast<Type*>(variant.storage_);
+	}
+
+	// Variant member functions implementations
 
 	template<typename ...Types>
 	inline void Variant<Types...>::destroy()
@@ -259,6 +325,12 @@ namespace VT
 		Variant temp(std::move(*this));
 		*this = std::move(other);
 		other = std::move(temp);
+	}
+
+	template<typename ...Types>
+	inline std::size_t Variant<Types...>::index() const
+	{
+		 return typeIndex_;
 	}
 
 	template<typename ...Types>

@@ -11,7 +11,7 @@ FetchContent_MakeAvailable(googletest)
 
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "*.cpp")
 
-add_executable(UnitTests ${TEST_SOURCES})
+add_executable(UnitTests ${TEST_SOURCES} "VariantTest.cpp")
 
 target_link_libraries(UnitTests PRIVATE
     VT::optional
