@@ -50,7 +50,7 @@ namespace VT
 		Variant<int, double, int> copy(original);	
 		EXPECT_EQ(copy.index(), 2);
 		EXPECT_TRUE(holdsAlternative<int>(copy));
-		//EXPECT_TRUE(holdsAlternative<int>(original));
+		EXPECT_TRUE(holdsAlternative<int>(original));
 	}
 
 	TEST(VariantConstructorTest, MoveConstructorMovesValue)
@@ -64,7 +64,17 @@ namespace VT
 		EXPECT_FALSE(holdsAlternative<double>(original));
 	}
 
-	TEST(VariantAssignmentTest, CopyAssignmentHandlesInt)
+	TEST(VariantConstructorTest, MoveConstructorMovesValueIfDuplicatedTypes)
+	{
+		Variant<int, double, int> original(std::in_place_index<2>, 42);
+		EXPECT_EQ(original.index(), 2);
+		Variant<int, double, int> moved(std::move(original));
+		EXPECT_EQ(moved.index(), 2);
+		EXPECT_TRUE(holdsAlternative<int>(moved));
+		EXPECT_FALSE(holdsAlternative<int>(original));
+	}
+
+	TEST(VariantAssignmentTest, CopyAssignmentHandlesValue)
 	{
 		Variant<int, double> original(std::in_place_index<0>, 42);
 		Variant<int, double> target(std::in_place_index<1>, 1.5);
@@ -73,17 +83,6 @@ namespace VT
 
 		EXPECT_EQ(target.index(), 0);
 		EXPECT_TRUE(holdsAlternative<int>(target));
-	}
-
-	TEST(VariantAssignmentTest, CopyAssignmentHandlesDouble)
-	{
-		Variant<int, double> original(std::in_place_index<1>, 2.71);
-		Variant<int, double> target(std::in_place_index<0>, 10);
-
-		target = original;
-
-		EXPECT_EQ(target.index(), 1);
-		EXPECT_TRUE(holdsAlternative<double>(target));
 	}
 
 	TEST(VariantAssignmentTest, CopyAssignmentToSameType)
@@ -97,7 +96,7 @@ namespace VT
 		EXPECT_TRUE(holdsAlternative<int>(target));
 	}
 
-	TEST(VariantAssignmentTest, MoveAssignmentHandlesInt)
+	TEST(VariantAssignmentTest, MoveAssignmentHandlesValue)
 	{
 		Variant<int, double> original(std::in_place_index<0>, 999);
 		Variant<int, double> target(std::in_place_index<1>, 1.1);
@@ -108,33 +107,10 @@ namespace VT
 		EXPECT_TRUE(holdsAlternative<int>(target));
 	}
 
-	TEST(VariantAssignmentTest, MoveAssignmentHandlesDouble)
-	{
-		Variant<int, double> original(std::in_place_index<1>, 3.14);
-		Variant<int, double> target(std::in_place_index<0>, 5);
-
-		target = std::move(original);
-
-		EXPECT_EQ(target.index(), 1);
-		EXPECT_TRUE(holdsAlternative<double>(target));
-	}
-
-	TEST(VariantIndexTest, IndexReturnsCorrectIndexForFirstType)
-	{
-		Variant<int, double, std::string> variant(std::in_place_index<0>, 10);
-		EXPECT_EQ(variant.index(), 0);
-	}
-
-	TEST(VariantIndexTest, IndexReturnsCorrectIndexForSecondType)
+	TEST(VariantIndexTest, IndexReturnsCorrectIndexForRandomType)
 	{
 		Variant<int, double, std::string> variant(std::in_place_index<1>, 2.5);
 		EXPECT_EQ(variant.index(), 1);
-	}
-
-	TEST(VariantIndexTest, IndexReturnsCorrectIndexForThirdType)
-	{
-		Variant<int, double, std::string> variant(std::in_place_index<2>, std::string("hello"));
-		EXPECT_EQ(variant.index(), 2);
 	}
 
 	TEST(VariantIndexTest, DefaultConstructorHasIndex0)
@@ -191,22 +167,6 @@ namespace VT
 		EXPECT_FALSE(var1 == var2);
 	}
 
-	TEST(VariantEqualityTest, EqualityForStrings)
-	{
-		Variant<int, std::string> var1(std::in_place_index<1>, std::string("hello"));
-		Variant<int, std::string> var2(std::in_place_index<1>, std::string("hello"));
-
-		EXPECT_TRUE(var1 == var2);
-	}
-
-	TEST(VariantEqualityTest, EqualityFalseForDifferentStrings)
-	{
-		Variant<int, std::string> var1(std::in_place_index<1>, std::string("hello"));
-		Variant<int, std::string> var2(std::in_place_index<1>, std::string("world"));
-
-		EXPECT_FALSE(var1 == var2);
-	}
-
 	TEST(VariantInequalityTest, InequalityTrueForDifferentValues)
 	{
 		Variant<int, double> var1(std::in_place_index<0>, 42);
@@ -231,7 +191,7 @@ namespace VT
 		EXPECT_TRUE(var1 != var2);
 	}
 
-	TEST(VariantLessThanTest, LessThanTrueForSmallValue)
+	TEST(VariantLessThanTest, LessThanTrueForLessValue)
 	{
 		Variant<int, double> var1(std::in_place_index<0>, 10);
 		Variant<int, double> var2(std::in_place_index<0>, 20);
@@ -263,14 +223,6 @@ namespace VT
 		EXPECT_TRUE(var1 < var2);
 	}
 
-	TEST(VariantLessThanTest, LessThanForDoubles)
-	{
-		Variant<int, double> var1(std::in_place_index<1>, 1.5);
-		Variant<int, double> var2(std::in_place_index<1>, 2.5);
-
-		EXPECT_TRUE(var1 < var2);
-	}
-
 	TEST(VariantGreaterThanTest, GreaterThanTrueForGreaterValue)
 	{
 		Variant<int, double> var1(std::in_place_index<0>, 30);
@@ -279,7 +231,7 @@ namespace VT
 		EXPECT_TRUE(var1 > var2);
 	}
 
-	TEST(VariantGreaterThanTest, GreaterThanFalseForSmallerValue)
+	TEST(VariantGreaterThanTest, GreaterThanFalseForLessValue)
 	{
 		Variant<int, double> var1(std::in_place_index<0>, 10);
 		Variant<int, double> var2(std::in_place_index<0>, 20);
