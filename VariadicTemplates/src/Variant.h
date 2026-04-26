@@ -114,7 +114,7 @@ namespace VT
 	template <std::size_t Index, typename... Types>
 	struct RTTypeAtIndex
 	{
-		static constexpr void recurseCopy(const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
+		static constexpr void recurseCopy(const std::size_t otherIindex, std::byte* thisStorage, const std::byte* otherStorage)
 		{
 			throw std::runtime_error("No valid type found in Variant type list");
 		}
@@ -129,12 +129,12 @@ namespace VT
 			throw std::runtime_error("No valid type found in Variant type list");
 		}
 
-		static constexpr bool recurseEqual(const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
+		static constexpr bool recurseEqual(const std::size_t otherIindex, const std::byte* thisStorage, const std::byte* otherStorage)
 		{
 			throw std::runtime_error("No valid type found in Variant type list");
 		}
 
-		static constexpr bool recurseLess(const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
+		static constexpr bool recurseLess(const std::size_t otherIindex, const std::byte* thisStorage, const std::byte* otherStorage)
 		{
 			throw std::runtime_error("No valid type found in Variant type list");
 		}
@@ -145,13 +145,13 @@ namespace VT
 	template <std::size_t Index, typename Head, typename... Types>
 	struct RTTypeAtIndex<Index, Head, Types...>
 	{
-		static constexpr void recurseCopy (const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
+		static constexpr void recurseCopy (const std::size_t otherIindex, std::byte* thisStorage, const std::byte* otherStorage)
 		{
 			if (Index != otherIindex)
 			{
 				RTTypeAtIndex<Index + 1, Types...>::recurseCopy(otherIindex, thisStorage, otherStorage);
 			}
-			new(thisStorage) Head(*reinterpret_cast<Head*>(otherStorage));
+			new(thisStorage) Head(*reinterpret_cast<const Head*>(otherStorage));
 		}
 
 		static constexpr void recurseMove(const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
@@ -160,7 +160,7 @@ namespace VT
 			{
 				RTTypeAtIndex<Index + 1, Types...>::recurseMove(otherIindex, thisStorage, otherStorage);
 			}
-			new(thisStorage) Head(*reinterpret_cast<Head*>(otherStorage));
+			new(thisStorage) Head(std::move(*reinterpret_cast<Head*>(otherStorage)));
 		}
 
 		static constexpr void recurseDestruct(const std::size_t otherIindex, std::byte* thisStorage)
@@ -172,22 +172,22 @@ namespace VT
 			reinterpret_cast<Head*>(thisStorage)->~Head();
 		}
 
-		static constexpr bool recurseEqual(const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
+		static constexpr bool recurseEqual(const std::size_t otherIindex, const std::byte* thisStorage, const std::byte* otherStorage)
 		{
 			if (Index != otherIindex)
 			{
 				return RTTypeAtIndex<Index + 1, Types...>::recurseEqual(otherIindex, thisStorage, otherStorage);
 			}
-			return *reinterpret_cast<Head*>(thisStorage) == *reinterpret_cast<Head*>(otherStorage);
+			return *reinterpret_cast<const Head*>(thisStorage) == *reinterpret_cast<const Head*>(otherStorage);
 		}
 
-		static constexpr bool recurseLess(const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
+		static constexpr bool recurseLess(const std::size_t otherIindex, const std::byte* thisStorage, const std::byte* otherStorage)
 		{
 			if (Index != otherIindex)
 			{
 				return RTTypeAtIndex<Index + 1, Types...>::recurseLess(otherIindex, thisStorage, otherStorage);
 			}
-			return *reinterpret_cast<Head*>(thisStorage) < *reinterpret_cast<Head*>(otherStorage);
+			return *reinterpret_cast<const Head*>(thisStorage) < *reinterpret_cast<const Head*>(otherStorage);
 		}
 	};
 
@@ -245,10 +245,41 @@ namespace VT
 		return std::max({alignof(Types)...});
 	}
 
+	// Forward declaration
+	template<typename T, std::size_t Index, typename... Types>
+	struct CheckTypeAtIndex;
+
+	// Base case specialization - empty Types
+	template<typename T, std::size_t Index>
+	struct CheckTypeAtIndex<T, Index>
+	{
+		static constexpr bool check(std::size_t currentIdx)
+		{
+			return false;
+		}
+	};
+
+	// Recursive case
+	template<typename T, std::size_t Index, typename Head, typename... Tail>
+	struct CheckTypeAtIndex<T, Index, Head, Tail...>
+	{
+		static constexpr bool check(std::size_t currentIdx)
+		{
+			if (currentIdx == Index)
+			{
+				return std::is_same<T, Head>::value;
+			}
+			else
+			{
+				return CheckTypeAtIndex<T, Index + 1, Tail...>::check(currentIdx);
+			}
+		}
+	};
+
 	template<typename T, typename... Types >
 	bool holdsAlternative(const Variant<Types...>& variant)
 	{
-		return variant.index() == CPIndexAtType<T, 0, Types...>::getIndex();
+		return CheckTypeAtIndex<T, 0, Types...>::check(variant.index());
 	}
 
 	template<std::size_t Index, typename... Types>
@@ -294,22 +325,35 @@ namespace VT
 	}
 
 	template<typename ...Types>
-	inline Variant<Types...>::Variant(Variant&& other)
+	inline Variant<Types...>::Variant(Variant&& other) : typeIndex_(other.typeIndex_)
 	{
 		RTTypeAtIndex<0, Types...>::recurseMove(other.typeIndex_, storage_, other.storage_);
+		other.destroy();
+		other.typeIndex_ = 0;
+		new(&other.storage_[0]) typename CPTypeAtIndex<0, Types...>::type();
 	}
 
 	template<typename ...Types>
 	inline Variant<Types...>& Variant<Types...>::operator=(const Variant& other)
 	{
-		RTTypeAtIndex<0, Types...>::recurseCopy(other.typeIndex_, storage_, other.storage_);
+		if (this != &other)
+		{
+			destroy();
+			typeIndex_ = other.typeIndex_;
+			RTTypeAtIndex<0, Types...>::recurseCopy(other.typeIndex_, storage_, other.storage_);
+		}
 		return *this;
 	}
 
 	template<typename ...Types>
 	inline Variant<Types...>& Variant<Types...>::operator=(Variant&& other)
 	{
-		RTTypeAtIndex<0, Types...>::recurseMove(other.typeIndex_, storage_, other.storage_);
+		if (this != &other)
+		{
+			destroy();
+			typeIndex_ = other.typeIndex_;
+			RTTypeAtIndex<0, Types...>::recurseMove(other.typeIndex_, storage_, other.storage_);
+		}
 		return *this;
 	}
 
@@ -340,7 +384,7 @@ namespace VT
 		{
 			return false;
 		}
-		return RTTypeAtIndex<0, Types...>::recurseEqual(typeIndex_, storage_, other.storage_);
+		return RTTypeAtIndex<0, Types...>::recurseEqual(typeIndex_, const_cast<std::byte*>(storage_), const_cast<std::byte*>(other.storage_));
 	}
 
 	template<typename ...Types>
@@ -356,7 +400,7 @@ namespace VT
 		{
 			return typeIndex_ < other.typeIndex_;
 		}
-		return RTTypeAtIndex<0, Types...>::recurseLess(typeIndex_, storage_, other.storage_);
+		return RTTypeAtIndex<0, Types...>::recurseLess(typeIndex_, const_cast<std::byte*>(storage_), const_cast<std::byte*>(other.storage_));
 	}
 
 	template<typename ...Types>
