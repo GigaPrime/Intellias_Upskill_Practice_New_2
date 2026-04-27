@@ -19,6 +19,14 @@ namespace VT
 	template <std::size_t Index, typename... Types>
 	struct RTTypeAtIndex;
 
+	// Run time deeducing value at index
+	template <std::size_t Index, typename... Types>
+	struct RTValueAtIndex;
+
+	// A helper used for holdsAlternative function allowing for duplicated types deduction
+	template <typename T, std::size_t Index, typename... Types>
+	struct CheckTypeAtIndex;
+
 	template<typename... Types>
 	constexpr std::size_t GetLargestSize();
 
@@ -245,9 +253,6 @@ namespace VT
 		return std::max({alignof(Types)...});
 	}
 
-	// Forward declaration
-	template<typename T, std::size_t Index, typename... Types>
-	struct CheckTypeAtIndex;
 
 	// Base case specialization - empty Types
 	template<typename T, std::size_t Index>
