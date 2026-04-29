@@ -44,8 +44,17 @@ namespace VT
 		template <typename... Types>
 		friend class Variant;
 
-		template<std::size_t Index>
+		template<std::size_t Index, typename... Types>
 		friend constexpr typename CPTypeAtIndex<Index, Types...>::type& get(Variant<Types...>& variant);
+
+		template<std::size_t Index, typename... Types>
+		friend constexpr const typename CPTypeAtIndex<Index, Types...>::type& get(const Variant<Types...>& variant);
+
+		template<std::size_t Index, typename... Types>
+		friend constexpr typename CPTypeAtIndex<Index, Types...>::type&& get(Variant<Types...>&& variant);
+
+		template<std::size_t Index, typename... Types>
+		friend constexpr const typename CPTypeAtIndex<Index, Types...>::type&& get(const Variant<Types...>&& variant);
 
 		void destroy();
 
@@ -297,6 +306,42 @@ namespace VT
 
 		using Type = typename CPTypeAtIndex<Index, Types...>::type;
 		return *reinterpret_cast<Type*>(variant.storage_);
+	}
+
+	template<std::size_t Index, typename... Types>
+	constexpr const typename CPTypeAtIndex<Index, Types...>::type& get(const Variant<Types...>& variant)
+	{
+		if (variant.index() != Index)
+		{
+			throw std::runtime_error("Variant does not hold the requested type");
+		}
+
+		using Type = typename CPTypeAtIndex<Index, Types...>::type;
+		return *reinterpret_cast<const Type*>(variant.storage_);
+	}
+
+	template<std::size_t Index, typename... Types>
+	constexpr typename CPTypeAtIndex<Index, Types...>::type&& get(Variant<Types...>&& variant)
+	{
+		if (variant.index() != Index)
+		{
+			throw std::runtime_error("Variant does not hold the requested type");
+		}
+
+		using Type = typename CPTypeAtIndex<Index, Types...>::type;
+		return std::move(*reinterpret_cast<Type*>(variant.storage_));
+	}
+
+	template<std::size_t Index, typename... Types>
+	constexpr const typename CPTypeAtIndex<Index, Types...>::type&& get(const Variant<Types...>&& variant)
+	{
+		if (variant.index() != Index)
+		{
+			throw std::runtime_error("Variant does not hold the requested type");
+		}
+
+		using Type = typename CPTypeAtIndex<Index, Types...>::type;
+		return std::move(*reinterpret_cast<const Type*>(variant.storage_));
 	}
 
 	// Variant member functions implementations

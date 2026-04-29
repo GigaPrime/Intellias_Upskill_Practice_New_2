@@ -71,7 +71,9 @@ namespace VT
 		Variant<int, double, int> moved(std::move(original));
 		EXPECT_EQ(moved.index(), 2);
 		EXPECT_TRUE(holdsAlternative<int>(moved));
-		EXPECT_FALSE(holdsAlternative<int>(original));
+		EXPECT_TRUE(holdsAlternative<int>(original));
+		EXPECT_EQ(original.index(), 0);
+		EXPECT_NE(original.index(), 2);
 	}
 
 	TEST(VariantAssignmentTest, CopyAssignmentHandlesValue)
@@ -357,6 +359,48 @@ namespace VT
 
 		EXPECT_TRUE(holdsAlternative<int>(target));
 		EXPECT_FALSE(holdsAlternative<double>(target));
+	}
+
+	TEST(VariantGetTest, GetNonConstReferenceReturnsValue)
+	{
+		Variant<int, double> variant(std::in_place_index<0>, 42);
+		int& value = get<0>(variant);
+		EXPECT_EQ(value, 42);
+		value = 100;
+		EXPECT_EQ(get<0>(variant), 100);
+	}
+
+	TEST(VariantGetTest, GetConstReferenceReturnsConstValue)
+	{
+		const Variant<int, double> variant(std::in_place_index<0>, 42);
+		const int& value = get<0>(variant);
+		EXPECT_EQ(value, 42);
+	}
+
+	TEST(VariantGetTest, GetRvalueReferenceReturnsMovableValue)
+	{
+		Variant<std::string, double> variant(std::in_place_index<0>, "hello");
+		std::string value = get<0>(std::move(variant));
+		EXPECT_EQ(value, "hello");
+	}
+
+	TEST(VariantGetTest, GetConstRvalueReferenceReturnsConstMovableValue)
+	{
+		const Variant<int, double> variant(std::in_place_index<1>, 3.14);
+		const double& value = get<1>(std::move(variant));
+		EXPECT_EQ(value, 3.14);
+	}
+
+	TEST(VariantGetTest, GetThrowsWhenIndexDoesNotMatch)
+	{
+		Variant<int, double> variant(std::in_place_index<0>, 42);
+		EXPECT_THROW(get<1>(variant), std::runtime_error);
+	}
+
+	TEST(VariantGetTest, GetConstThrowsWhenIndexDoesNotMatch)
+	{
+		const Variant<int, double> variant(std::in_place_index<0>, 42);
+		EXPECT_THROW(get<1>(variant), std::runtime_error);
 	}
 
 } // namespace VT
