@@ -53,6 +53,14 @@ namespace VT
 		EXPECT_TRUE(holdsAlternative<int>(original));
 	}
 
+	TEST(VariantConstructorTest, CopyConstructorFailsIfCopyDifferentVariant)
+	{
+		Variant<int, double> variant1(std::in_place_index<0>, 42);
+		Variant <double, int> variant2(std::in_place_index<0>, 42.2);
+
+		//variant1 = variant2;	// compile time error for different Variants
+	}
+
 	TEST(VariantConstructorTest, MoveConstructorMovesValue)
 	{
 		Variant<int, double> original(std::in_place_index<1>, 42.42);
