@@ -15,13 +15,13 @@ namespace VT
 	template <typename T, std::size_t Index, typename... Types>
 	struct CPIndexAtType;
 
-	// Run time deducing type at index for copy/move constructors and assignment operators
-	template <std::size_t Index, typename... Types>
-	struct RTTypeAtIndex;
-
 	// Run time deeducing value at index
 	template <std::size_t Index, typename... Types>
 	struct RTValueAtIndex;
+
+	// Run time deducing type at index for copy/move constructors and assignment operators
+	template <std::size_t Index, typename... Types>
+	struct RTTypeAtIndex;
 
 	// A helper used for holdsAlternative function allowing for duplicated types deduction
 	template <typename T, std::size_t Index, typename... Types>
@@ -73,6 +73,10 @@ namespace VT
 		void swap(Variant& other);
 		std::size_t index() const;
 
+		template<typename Visitor, 
+			typename ReturnType = decltype(std::declval<Visitor>()(std::declval<const typename CPTypeAtIndex<0, Types...>::type&>()))>
+		ReturnType visit(Visitor&& visitor) const;
+
 		bool operator==(const Variant& other) const;
 		bool operator!=(const Variant& other) const;
 		bool operator<(const Variant& other) const;
@@ -82,19 +86,13 @@ namespace VT
 	};
 
 	// Non-member functions
-	template<>
-	struct CPTypeAtIndex<-1>
-	{
-		using type = void;
-	};
-
 	template <typename Head, typename... Types>
 	struct CPTypeAtIndex<0, Head, Types...>
 	{
 		using type = Head;
 	};
 	
-	template <int Index, typename Head, typename... Types>
+	template <std::size_t Index, typename Head, typename... Types>
 	struct CPTypeAtIndex<Index, Head, Types...>
 	{
 		using type = typename CPTypeAtIndex<Index - 1, Types...>::type;
@@ -128,6 +126,13 @@ namespace VT
 		}	
 	};
 
+	// A kinda wrapper over the return type of the Visitor in case it is void or lambda with no return type specified
+	template <typename T>
+	struct TypeTag
+	{
+		using type = T;
+	};
+
 	template <std::size_t Index, typename... Types>
 	struct RTTypeAtIndex
 	{
@@ -155,6 +160,12 @@ namespace VT
 		{
 			throw std::runtime_error("No valid type found in Variant type list");
 		}
+
+		template <typename Visitor, typename ReturnType>
+		static constexpr ReturnType recurseVisit(const std::size_t index, const std::byte* storage, Visitor&& visitor)
+		{
+			throw std::runtime_error("No valid type found in Variant type list");
+		}
 	};
 
 	// alignas can't be used here since arrays should be passed here not the storage itself.
@@ -168,7 +179,10 @@ namespace VT
 			{
 				RTTypeAtIndex<Index + 1, Types...>::recurseCopy(otherIindex, thisStorage, otherStorage);
 			}
-			new(thisStorage) Head(*reinterpret_cast<const Head*>(otherStorage));
+			else
+			{
+				new(thisStorage) Head(*reinterpret_cast<const Head*>(otherStorage));
+			}
 		}
 
 		static constexpr void recurseMove(const std::size_t otherIindex, std::byte* thisStorage, std::byte* otherStorage)
@@ -177,7 +191,10 @@ namespace VT
 			{
 				RTTypeAtIndex<Index + 1, Types...>::recurseMove(otherIindex, thisStorage, otherStorage);
 			}
-			new(thisStorage) Head(std::move(*reinterpret_cast<Head*>(otherStorage)));
+			else
+			{
+				new(thisStorage) Head(std::move(*reinterpret_cast<Head*>(otherStorage)));
+			}
 		}
 
 		static constexpr void recurseDestruct(const std::size_t otherIindex, std::byte* thisStorage)
@@ -186,7 +203,10 @@ namespace VT
 			{
 				RTTypeAtIndex<Index + 1, Types...>::recurseDestruct(otherIindex, thisStorage);
 			}
-			reinterpret_cast<Head*>(thisStorage)->~Head();
+			else
+			{
+				reinterpret_cast<Head*>(thisStorage)->~Head();
+			}
 		}
 
 		static constexpr bool recurseEqual(const std::size_t otherIindex, const std::byte* thisStorage, const std::byte* otherStorage)
@@ -206,6 +226,19 @@ namespace VT
 			}
 			return *reinterpret_cast<const Head*>(thisStorage) < *reinterpret_cast<const Head*>(otherStorage);
 		}
+
+		template <typename Visitor, typename ReturnType>
+		static constexpr ReturnType recurseVisit(const std::size_t index, const std::byte* storage, Visitor&& visitor)
+		{
+			if (Index == index)
+			{
+				return visitor(*reinterpret_cast<const Head*>(storage));
+			}
+			else
+			{
+				return RTTypeAtIndex<Index + 1, Types...>::template recurseVisit<Visitor, ReturnType>(index, storage, std::forward<Visitor>(visitor));
+			}
+		}
 	};
 
 	template<std::size_t Index, typename... Types>
@@ -217,16 +250,14 @@ namespace VT
 	template<typename Head, typename... Types>
 	struct RTValueAtIndex<0, Head, Types...>
 	{
-		using type = Head;
-
-		static constexpr type* getValue(std::byte* storage)
+		static constexpr Head* getValue(std::byte* storage)
 		{
-			return reinterpret_cast<type*>(storage);
+			return reinterpret_cast<Head*>(storage);
 		}
 
-		static constexpr const type* getValue(const std::byte* storage)
+		static constexpr const Head* getValue(const std::byte* storage)
 		{
-			return reinterpret_cast<const type*>(storage);
+			return reinterpret_cast<const Head*>(storage);
 		}
 	};
 
@@ -235,14 +266,12 @@ namespace VT
 	{
 		static_assert(Index <= sizeof...(Types), "Index out of range in Variant type list");
 
-		using type = typename RTValueAtIndex<Index - 1, Types...>::type;
-
-		static constexpr type* getValue(std::byte* storage)
+		static constexpr Head* getValue(std::byte* storage)
 		{
 			return RTValueAtIndex<Index - 1, Types...>::getValue(storage);
 		}
 
-		static constexpr const type* getValue(const std::byte* storage)
+		static constexpr const Head* getValue(const std::byte* storage)
 		{
 			return RTValueAtIndex<Index - 1, Types...>::getValue(storage);
 		}
@@ -366,6 +395,13 @@ namespace VT
 	{
 		using Type = typename CPTypeAtIndex<I, Types...>::type;
 		new(&storage_[0]) Type(std::forward<Args>(args)...);
+	}
+
+	template <typename ...Types>
+	template<typename Visitor, typename ReturnType>
+	inline ReturnType Variant<Types...>::visit(Visitor&& visitor) const
+	{
+		return RTTypeAtIndex<0, Types...>::template recurseVisit<Visitor, ReturnType>(typeIndex_, storage_, std::forward<Visitor>(visitor));
 	}
 
 	template<typename ...Types>

@@ -411,4 +411,113 @@ namespace VT
 		EXPECT_THROW(get<1>(variant), std::runtime_error);
 	}
 
+	// Trivial unit tests for VT Variant visit method simulating std::variant visit behavior
+
+	TEST(VariantVisitTest, VisitCallsVisitorWithCorrectValue)
+	{
+		Variant<int, double> variant(std::in_place_index<0>, 100);
+
+		int result = variant.visit([](const auto& value) {
+			return value;
+		});
+
+		EXPECT_EQ(result, 100);
+	}
+
+	TEST(VariantVisitTest, VisitWithLambdaCapture)
+	{
+		Variant<int, double> variant(std::in_place_index<0>, 10);
+
+		int multiplier = 5;
+		int result = variant.visit([multiplier](const auto& value) {
+			return value * multiplier;
+		});
+
+		EXPECT_EQ(result, 50);
+	}
+
+	TEST(VariantVisitTest, VisitReturnsVoid)
+	{
+		Variant<int, double> variant(std::in_place_index<0>, 42);
+
+		int callCount = 0;
+		variant.visit([&callCount](const auto& value) {
+			callCount++;
+		});
+
+		EXPECT_EQ(callCount, 1);
+	}
+
+	TEST(VariantVisitTest, VisitWithFunctionObject)
+	{
+		struct Visitor
+		{
+			int operator()(const int& value) const { return value * 2; }
+			int operator()(const double& value) const { return static_cast<int>(value * 2); }
+		};
+
+		Variant<int, double> variant(std::in_place_index<0>, 21);
+		int result = variant.visit(Visitor{});
+
+		EXPECT_EQ(result, 42);
+	}
+
+	TEST(VariantVisitTest, VisitWithMultipleTypes)
+	{
+		Variant<int, double> var1(std::in_place_index<0>, 10);
+		int result1 = var1.visit([](const auto& value) { return value * 2; });
+
+		Variant<int, double> var2(std::in_place_index<1>, 5.5);
+		double result2 = var2.visit([](const auto& value) { return value * 2; });
+
+		EXPECT_EQ(result1, 20);
+		EXPECT_DOUBLE_EQ(result2, 11.0);
+	}
+
+	TEST(VariantVisitTest, VisitWithDuplicatedTypes)
+	{
+		Variant<int, double, int> variant(std::in_place_index<2>, 100);
+
+		int result = variant.visit([](const auto& value) {
+			return value;
+		});
+
+		EXPECT_EQ(result, 100);
+	}
+
+	TEST(VariantVisitTest, VisitWithConstVariant)
+	{
+		const Variant<int, double> variant(std::in_place_index<0>, 42);
+
+		int result = variant.visit([](const auto& value) {
+			return value;
+		});
+
+		EXPECT_EQ(result, 42);
+	}
+
+	TEST(VariantVisitTest, VisitAfterCopyConstruction)
+	{
+		Variant<int, double> original(std::in_place_index<0>, 100);
+		Variant<int, double> copy(original);
+
+		int result = copy.visit([](const auto& value) {
+			return value;
+		});
+
+		EXPECT_EQ(result, 100);
+	}
+
+	TEST(VariantVisitTest, VisitAfterMoveConstruction)
+	{
+		Variant<double, int> original(std::in_place_index<0>, 2.5);
+		Variant<double, int> moved(std::move(original));
+
+		double result = moved.visit([](const auto& value) {
+			return value;
+		});
+
+		EXPECT_DOUBLE_EQ(result, 2.5);
+	}
+
 } // namespace VT
