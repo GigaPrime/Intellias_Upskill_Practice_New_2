@@ -3,7 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="IPtr/IPtr.vcxproj" Id="a6f0d581-e142-4954-bfe3-da136d970ef5" />
-  <Project Path="UniquePtr/UniquePtr.vcxproj" Id="c0de7377-5ce5-4fdd-8984-3772cb6c5d38" />
-  <Project Path="_Tests/_Tests.vcxproj" Id="d1dd1286-9f28-4cb5-b58a-b9339dc012be" />
+  <Project Path="_Tests/_Tests.vcxproj" Id="91cba6f6-4b94-4721-b986-fdbe1f84888f" />
 </Solution>
