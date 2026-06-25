@@ -3,21 +3,20 @@
 #include <iostream>
 #include <memory>
 
-void ThreadPool::run()
+template <typename T>
+void ThreadPool<T>::run()
 {
 	while (true)
 	{
-		if (!taskData_)
-			return;
+		if (!taskData_) return;
 
 		std::unique_ptr<Task> task = taskData_->popReadyTask();
-		if (!task)
-			return;
+		if (!task) return;
 
 		try
 		{
-			task->getAction()();
-			taskData_->markCompleted(task->getId(), TaskState::Completed);
+			task->operator();
+			taskData_->markCompleted(task->getId(), TaskState::Completed, task->getResult());
 		}
 		catch (...)
 		{
@@ -27,7 +26,8 @@ void ThreadPool::run()
 	}
 }
 
-ThreadPool::ThreadPool(std::shared_ptr<TaskData> taskData, const std::size_t threadCount) : taskData_(std::move(taskData)), running_(true)
+template <typename T>
+ThreadPool<T>::ThreadPool(std::shared_ptr<TaskData<T>> taskData, const std::size_t threadCount) : taskData_(std::move(taskData)), running_(true)
 {
 	threads_.reserve(threadCount);
 
@@ -37,12 +37,14 @@ ThreadPool::ThreadPool(std::shared_ptr<TaskData> taskData, const std::size_t thr
 	}
 }
 
-ThreadPool::~ThreadPool()
+template <typename T>
+ThreadPool<T>::~ThreadPool()
 {
 	shutdown();
 }
 
-void ThreadPool::shutdown()
+template <typename T>
+void ThreadPool<T>::shutdown()
 {
 	{
 		std::lock_guard<std::mutex> lock(mutex_);

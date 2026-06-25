@@ -8,32 +8,40 @@
 #include <condition_variable>
 #include <chrono>
 #include <unordered_map>
+#include <set>
 
 using taskId = std::size_t;
 
+template<typename T>
 class TaskData
 {
 private:
-	std::mutex mutex_;
+	mutable std::mutex mutex_;
 	std::condition_variable condition_;
-	std::multimap<std::chrono::steady_clock::time_point, std::unique_ptr<Task>> tasks_;
-	std::unordered_map<taskId, TaskState> completedTasks_;
+	std::multimap<std::chrono::steady_clock::time_point, std::unique_ptr<Task<T>>> tasks_;
+
+	struct CompletedTask
+	{
+		TaskState taskState_;
+		const std::unique_ptr<T> result_;
+	};
+
+	std::unordered_map<taskId, CompletedTask> completedTasks_;
 	bool stopping_ = false;
 
 public:
 	TaskData() = default;
 
-	void addTask(const std::chrono::steady_clock::time_point& time, std::unique_ptr<Task> task);
+	void addTask(const std::chrono::steady_clock::time_point& time, std::unique_ptr<Task<T>> task);
 
-	std::unique_ptr<Task> popReadyTask();
+	std::unique_ptr<Task<T>> popReadyTask();
 
 	void shutdown();
 
-	// As a trivial getter it should be const but it is thread safe and uses mutex
-	// So either I have to keep it non-const or set mutex_ as mutable
-	TaskState getTaskState(const taskId id);
+	TaskState getTaskState(const taskId id) const;
+	const std::unique_ptr<T> getTaskResult(const taskId id) const;
 
 	bool cancelTask(const taskId id);
 
-	void markCompleted(const taskId id, TaskState state);
+	void markCompleted(const taskId id, TaskState state, const std::unique_ptr<T> result);
 };

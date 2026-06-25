@@ -40,8 +40,8 @@ FetchContent_MakeAvailable(googletest)
 list(APPEND SOURCES "main.cpp" "TimerTests.cpp")
 
 add_executable(Threading ${SOURCES})
-
-target_link_libraries(Threading PRIVATE GTest::gtest_main)
+target_link_libraries(Threading PRIVATE GTest::gtest)
+target_compile_features(Threading PRIVATE cxx_std_14)
 
 enable_testing()
 include(GoogleTest)

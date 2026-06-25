@@ -17,24 +17,31 @@ enum class TaskState
 	Failed
 };
 
+template<typename T>
 class Task 
 {
 private:
 	std::size_t id_;
 	std::chrono::steady_clock::time_point delay_;
-	std::function<void()> action_;
+	std::function<T()> action_;
+	std::unique_ptr<T> result_;
 	TaskState state_;
 
 public: 
-	Task(const std::size_t id, const std::chrono::steady_clock::time_point& delay, std::function<void()> action, TaskState state = TaskState::Pending)
+	Task( const std::size_t id
+		, const std::chrono::steady_clock::time_point& delay
+		, std::function<T()> action
+		, TaskState state = TaskState::Pending)
 		: id_(id), delay_(delay), action_(std::move(action)), state_(state) {}
 
 	Task(const Task&) = delete;
 	Task& operator=(const Task&) = delete;
 
+	void operator()();
+
 	std::size_t getId() const;
 	std::chrono::steady_clock::time_point getDelay() const;
 	void setState(const TaskState newState);
 	TaskState getState() const;
-	std::function<void()> getAction() const;
+	std::unique_ptr<T> getResult();
 };

@@ -1,26 +1,37 @@
 #include "Task.h"
 
-std::size_t Task::getId() const
+template<typename T>
+void Task<T>::operator()()
+{
+	result_ = std::make_unique<T>(action_());
+}
+
+template<typename T>
+std::size_t Task<T>::getId() const
 {
 	return id_;
 }
 
-std::chrono::steady_clock::time_point Task::getDelay() const
+template<typename T>
+std::chrono::steady_clock::time_point Task<T>::getDelay() const
 {
 	return delay_;
 }
 
-void Task::setState(const TaskState newState)
+template<typename T>
+void Task<T>::setState(const TaskState newState)
 {
 	state_ = newState;
 }
 
-TaskState Task::getState() const
+template<typename T>
+TaskState Task<T>::getState() const
 {
 	return state_;
 }
 
-std::function<void()> Task::getAction() const
+template<typename T>
+std::unique_ptr<T> Task<T>::getResult()
 {
-	return std::move(action_);
+	return std::move(result_);
 }

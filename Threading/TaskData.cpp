@@ -3,14 +3,16 @@
 #include <algorithm>
 #include <iostream>
 
-void TaskData::addTask(const std::chrono::steady_clock::time_point& time, std::unique_ptr<Task> task)
+template<typename T>
+void TaskData<T>::addTask(const std::chrono::steady_clock::time_point& time, std::unique_ptr<Task<T>> task)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	tasks_.emplace(time, std::move(task));
 	condition_.notify_all();
 }
 
-std::unique_ptr<Task> TaskData::popReadyTask()
+template <typename T>
+std::unique_ptr<Task<T>> TaskData<T>::popReadyTask()
 {
 	std::unique_lock<std::mutex> lock(mutex_);
 	while (true)
@@ -42,17 +44,34 @@ std::unique_ptr<Task> TaskData::popReadyTask()
 	}
 }
 
-TaskState TaskData::getTaskState(const taskId id)
+template <typename T>
+TaskState TaskData<T>::getTaskState(const taskId id) const
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	auto it = std::find_if(tasks_.begin(), tasks_.end(), [id](const auto& p) { return p.second->getId() == id; });
 	if (it != tasks_.end()) return it->second->getState();
 	auto ct = completedTasks_.find(id);
-	if (ct != completedTasks_.end()) return ct->second;
+	if (ct != completedTasks_.end()) return ct->second.taskState_;
 	return TaskState::Invalid;
 }
 
-bool TaskData::cancelTask(const taskId id)
+template<typename T>
+const std::unique_ptr<T> TaskData<T>::getTaskResult(const taskId id) const
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	auto ct = completedTasks_.find(id);
+	if (ct != completedTasks_.end())
+	{
+		// I assume if the task result was returned upon request, 
+		// there's no need to store the task further
+		completedTasks_.erase(id);
+		return std::move(ct->second.result_);
+	}
+	return nullptr;
+}
+
+template <typename T>
+bool TaskData<T>::cancelTask(const taskId id)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	auto it = std::find_if(tasks_.begin(), tasks_.end(), [id](const auto& p) { return p.second->getId() == id; });
@@ -65,14 +84,19 @@ bool TaskData::cancelTask(const taskId id)
 	return false;
 }
 
-// Not really...
-void TaskData::markCompleted(const taskId id, TaskState state)
+template <typename T>
+void TaskData<T>::markCompleted(const taskId id, TaskState state, const std::unique_ptr<T> result)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
-	completedTasks_[id] = state;
+	CompletedTask task;
+	task.taskState_ = state;
+	task.result_ = std::move(result);
+
+	completedTasks_.insert({ id, task });
 }
 
-void TaskData::shutdown()
+template <typename T>
+void TaskData<T>::shutdown()
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	stopping_ = true;

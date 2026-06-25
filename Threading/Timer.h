@@ -15,25 +15,24 @@
 
 using taskId = std::size_t;
 
+template<typename T>
 class Timer 
 {
 private:
 	std::mutex mutex_;
 	std::condition_variable condition_;
 
-	std::shared_ptr<TaskData> taskData_;
-	std::unique_ptr<ThreadPool> threadPool_;
+	std::shared_ptr<TaskData<T>> taskData_;
+	std::unique_ptr<ThreadPool<T>> threadPool_;
 
-	// To avoid locking for a primitive type
-	std::atomic<taskId> nextId_{1};
+	mutable std::atomic<taskId> nextId_{1};
 
 	bool running_ = true;
 	
 	std::chrono::steady_clock::time_point getNextTaskTime(
 		const std::chrono::steady_clock::duration delay) const;
 
-	// Same as in TaskData: either const or nexId_ should be mutable
-	taskId generateTaskId();
+	taskId generateTaskId() const;
 
 public:
 	explicit Timer(const std::size_t threadCount = 4);
@@ -41,13 +40,12 @@ public:
 	taskId addTask(std::function<void()> action, 
 		const std::chrono::steady_clock::duration delay);
 	TaskState getTaskState(const taskId id) const;
+	T* getResult(const taskId id) const;
 	bool cancelTask(const taskId id);
 	bool shutdown();
 };
 
 
-// return value handling (later on)
-
-
-// If the Timer should accept std::function<void*>() most likely I won't need any return value handling
-// In other way the redesign should be considered: return values (as std::any<T>) + taskId + TasState
+// Object State that stores task callbacks and current task state
+// TaskData would not need two containers anymore but would operate a single container with States incapsulating tasks and taskState
+// This would allow decoupling the return type of the callable from the callable flow management
