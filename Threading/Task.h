@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <functional>
 #include <chrono>
+#include <memory>
 
 // I assume the task should be absolutely unique, 
 // no copy constructors or assignment operators are allowed

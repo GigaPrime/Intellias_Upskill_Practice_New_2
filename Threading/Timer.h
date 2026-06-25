@@ -37,7 +37,7 @@ private:
 public:
 	explicit Timer(const std::size_t threadCount = 4);
 
-	taskId addTask(std::function<void()> action, 
+	taskId addTask(std::function<T()> action, 
 		const std::chrono::steady_clock::duration delay);
 	TaskState getTaskState(const taskId id) const;
 	std::unique_ptr<T> getResult(const taskId id) const;

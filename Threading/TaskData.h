@@ -23,7 +23,7 @@ private:
 	struct CompletedTask
 	{
 		TaskState taskState_;
-		const std::unique_ptr<T> result_;
+		std::unique_ptr<T> result_;
 	};
 
 	std::unordered_map<taskId, CompletedTask> completedTasks_;
@@ -39,9 +39,9 @@ public:
 	void shutdown();
 
 	TaskState getTaskState(const taskId id) const;
-	std::unique_ptr<T> getTaskResult(const taskId id) const;
+	std::unique_ptr<T> getTaskResult(const taskId id);
 
 	bool cancelTask(const taskId id);
 
-	void markCompleted(const taskId id, TaskState state, const std::unique_ptr<T> result);
+	void markCompleted(const taskId id, TaskState state, std::unique_ptr<T> result = nullptr);
 };

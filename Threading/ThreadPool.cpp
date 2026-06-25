@@ -10,12 +10,12 @@ void ThreadPool<T>::run()
 	{
 		if (!taskData_) return;
 
-		std::unique_ptr<Task> task = taskData_->popReadyTask();
+		std::unique_ptr<Task<T>> task = taskData_->popReadyTask();
 		if (!task) return;
 
 		try
 		{
-			task->operator();
+			(*task)();
 			taskData_->markCompleted(task->getId(), TaskState::Completed, task->getResult());
 		}
 		catch (...)

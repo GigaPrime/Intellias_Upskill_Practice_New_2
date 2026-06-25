@@ -18,17 +18,17 @@ taskId Timer<T>::generateTaskId() const
 
 template<typename T>
 Timer<T>::Timer(const std::size_t threadCount) 
-    : taskData_(std::make_shared<TaskData>())
+    : taskData_(std::make_shared<TaskData<T>>())
     , threadPool_(std::make_unique<ThreadPool<T>>(taskData_, threadCount))
     , running_(true) 
 {}
 
 template<typename T>
-taskId Timer<T>::addTask(std::function<void()> action, const std::chrono::steady_clock::duration delay)
+taskId Timer<T>::addTask(std::function<T()> action, const std::chrono::steady_clock::duration delay)
 {
     const auto id = generateTaskId();
     const auto time = getNextTaskTime(delay);
-    auto newTaskPtr = std::make_unique<Task>(id, time, std::move(action), TaskState::Pending);
+    auto newTaskPtr = std::make_unique<Task<T>>(id, time, std::move(action), TaskState::Pending);
     taskData_->addTask(time, std::move(newTaskPtr));
 	return id;
 }
@@ -42,7 +42,7 @@ TaskState Timer<T>::getTaskState(const taskId id) const
 template<typename T>
 std::unique_ptr<T> Timer<T>::getResult(const taskId id) const
 {
-    return taskData_->getTaskResult();
+    return taskData_->getTaskResult(id);
 }
 
 template<typename T>

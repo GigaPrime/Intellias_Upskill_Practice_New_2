@@ -33,7 +33,7 @@ std::unique_ptr<Task<T>> TaskData<T>::popReadyTask()
 		auto now = std::chrono::steady_clock::now();
 		if (it->first <= now)
 		{
-			std::unique_ptr<Task> t = std::move(it->second);
+			std::unique_ptr<Task<T>> t = std::move(it->second);
 			tasks_.erase(it);
 			return t;
 		}
@@ -56,7 +56,7 @@ TaskState TaskData<T>::getTaskState(const taskId id) const
 }
 
 template<typename T>
-std::unique_ptr<T> TaskData<T>::getTaskResult(const taskId id) const
+std::unique_ptr<T> TaskData<T>::getTaskResult(const taskId id)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	auto ct = completedTasks_.find(id);
@@ -64,8 +64,9 @@ std::unique_ptr<T> TaskData<T>::getTaskResult(const taskId id) const
 	{
 		// I assume if the task result was returned upon request, 
 		// there's no need to store the task further
-		completedTasks_.erase(id);
-		return std::move(ct->second.result_);
+		auto result = std::move(ct->second.result_);
+		completedTasks_.erase(ct);
+		return result;
 	}
 	return nullptr;
 }
@@ -77,7 +78,9 @@ bool TaskData<T>::cancelTask(const taskId id)
 	auto it = std::find_if(tasks_.begin(), tasks_.end(), [id](const auto& p) { return p.second->getId() == id; });
 	if (it != tasks_.end() && it->second->getState() == TaskState::Pending)
 	{
-		completedTasks_.insert({ it->second->getId(), TaskState::Cancelled });
+		completedTasks_.emplace(
+			it->second->getId(),
+			CompletedTask{ TaskState::Cancelled, nullptr });
 		tasks_.erase(it);
 		return true;
 	}
@@ -85,14 +88,12 @@ bool TaskData<T>::cancelTask(const taskId id)
 }
 
 template <typename T>
-void TaskData<T>::markCompleted(const taskId id, TaskState state, const std::unique_ptr<T> result)
+void TaskData<T>::markCompleted(const taskId id, TaskState state, std::unique_ptr<T> result)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
-	CompletedTask task;
-	task.taskState_ = state;
-	task.result_ = std::move(result);
-
-	completedTasks_.insert({ id, task });
+	completedTasks_.emplace(
+		id,
+		CompletedTask{ state, std::move(result) });
 }
 
 template <typename T>
