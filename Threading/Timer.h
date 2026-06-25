@@ -40,7 +40,7 @@ public:
 	taskId addTask(std::function<void()> action, 
 		const std::chrono::steady_clock::duration delay);
 	TaskState getTaskState(const taskId id) const;
-	T* getResult(const taskId id) const;
+	std::unique_ptr<T> getResult(const taskId id) const;
 	bool cancelTask(const taskId id);
 	bool shutdown();
 };

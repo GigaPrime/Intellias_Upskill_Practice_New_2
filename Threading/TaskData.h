@@ -39,7 +39,7 @@ public:
 	void shutdown();
 
 	TaskState getTaskState(const taskId id) const;
-	const std::unique_ptr<T> getTaskResult(const taskId id) const;
+	std::unique_ptr<T> getTaskResult(const taskId id) const;
 
 	bool cancelTask(const taskId id);
 

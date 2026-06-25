@@ -40,9 +40,9 @@ TaskState Timer<T>::getTaskState(const taskId id) const
 }
 
 template<typename T>
-T* Timer<T>::getResult(const taskId id) const
+std::unique_ptr<T> Timer<T>::getResult(const taskId id) const
 {
-    return taskData_->getTaskResult().get();
+    return taskData_->getTaskResult();
 }
 
 template<typename T>

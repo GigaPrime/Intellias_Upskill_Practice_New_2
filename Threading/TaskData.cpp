@@ -56,7 +56,7 @@ TaskState TaskData<T>::getTaskState(const taskId id) const
 }
 
 template<typename T>
-const std::unique_ptr<T> TaskData<T>::getTaskResult(const taskId id) const
+std::unique_ptr<T> TaskData<T>::getTaskResult(const taskId id) const
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	auto ct = completedTasks_.find(id);
