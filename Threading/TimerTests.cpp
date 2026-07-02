@@ -298,7 +298,7 @@ namespace TaskDataTests
 		ASSERT_NE(result2, nullptr);
 		EXPECT_EQ(*result2, 200);
 
-		// Expect 1-st task is removed from completed tasks
+		// Expect 2-st task is removed from completed tasks
 		EXPECT_EQ(td.getTaskState(1002), TaskState::Invalid);
 	}
 }

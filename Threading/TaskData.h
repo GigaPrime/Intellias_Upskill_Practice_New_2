@@ -8,7 +8,6 @@
 #include <condition_variable>
 #include <chrono>
 #include <unordered_map>
-#include <set>
 
 using taskId = std::size_t;
 
