@@ -10,7 +10,7 @@ void ThreadPool<T>::run()
 	{
 		if (!taskData_) return;
 
-		std::unique_ptr<Task<T>> task = taskData_->popReadyTask();
+		std::unique_ptr<Task<T>> task = taskData_->popTaskReadyForExecution();
 		if (!task) return;
 
 		try

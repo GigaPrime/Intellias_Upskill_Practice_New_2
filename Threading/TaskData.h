@@ -2,11 +2,11 @@
 
 #include "Task.h"
 
+#include <chrono>
+#include <condition_variable>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <condition_variable>
-#include <chrono>
 #include <unordered_map>
 
 using taskId = std::size_t;
@@ -28,12 +28,15 @@ private:
 	std::unordered_map<taskId, CompletedTask> completedTasks_;
 	bool stopping_ = false;
 
+	// Helper: generate random timeout between 10 and 500 ms
+	std::chrono::milliseconds getRandomDelay() const;
+
 public:
 	TaskData() = default;
 
 	void addTask(const std::chrono::steady_clock::time_point& time, std::unique_ptr<Task<T>> task);
 
-	std::unique_ptr<Task<T>> popReadyTask();
+	std::unique_ptr<Task<T>> popTaskReadyForExecution();
 
 	void shutdown();
 

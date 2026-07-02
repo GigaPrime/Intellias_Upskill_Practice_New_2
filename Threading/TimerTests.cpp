@@ -105,7 +105,7 @@ namespace TaskDataTests
 		td.addTask(now, std::move(taskPtr));
 		EXPECT_EQ(td.getTaskState(101), TaskState::Pending);
 
-		auto popped = td.popReadyTask();
+		auto popped = td.popTaskReadyForExecution();
 		ASSERT_TRUE(popped);
 		EXPECT_EQ(popped->getId(), 101u);
 
@@ -136,7 +136,7 @@ namespace TaskDataTests
 
 		td.addTask(now + std::chrono::milliseconds(10), std::make_unique<Task<int>>(300, now + std::chrono::milliseconds(10), []() { return 300; }));
 
-		auto first = td.popReadyTask();
+		auto first = td.popTaskReadyForExecution();
 		ASSERT_TRUE(first);
 		EXPECT_EQ(first->getId(), 300u);
 	}
@@ -152,7 +152,7 @@ namespace TaskDataTests
 		std::set<std::size_t> seen;
 		for (int i = 0; i < 3; ++i)
 		{
-			auto t = td.popReadyTask();
+			auto t = td.popTaskReadyForExecution();
 			ASSERT_TRUE(t);
 			seen.insert(t->getId());
 			td.markCompleted(t->getId(), TaskState::Completed);
@@ -190,7 +190,7 @@ namespace TaskDataTests
 		auto now = std::chrono::steady_clock::now();
 		td.addTask(now, std::make_unique<Task<int>>(701, now, []() { return 701; }));
 
-		auto t = td.popReadyTask();
+		auto t = td.popTaskReadyForExecution();
 		ASSERT_TRUE(t);
 		EXPECT_EQ(t->getId(), 701u);
 
@@ -205,7 +205,7 @@ namespace TaskDataTests
 		auto taskPtr = std::make_unique<Task<int>>(801, now, []() { return 801; });
 
 		td.addTask(now, std::move(taskPtr));
-		auto popped = td.popReadyTask();
+		auto popped = td.popTaskReadyForExecution();
 
 		ASSERT_TRUE(popped);
 		EXPECT_EQ(popped->getId(), 801u);
@@ -223,7 +223,7 @@ namespace TaskDataTests
 		auto taskPtr = std::make_unique<Task<int>>(802, now, []() { return 256; });
 
 		td.addTask(now, std::move(taskPtr));
-		auto popped = td.popReadyTask();
+		auto popped = td.popTaskReadyForExecution();
 
 		ASSERT_TRUE(popped);
 		(*popped)();
@@ -246,7 +246,7 @@ namespace TaskDataTests
 		auto taskPtr = std::make_unique<Task<int>>(taskId, now, []() { return expectedResult; });
 		td.addTask(now, std::move(taskPtr));
 
-		auto popped = td.popReadyTask();
+		auto popped = td.popTaskReadyForExecution();
 		ASSERT_TRUE(popped);
 		(*popped)();
 
@@ -269,7 +269,7 @@ namespace TaskDataTests
 		// Add 1-st task
 		auto task1 = std::make_unique<Task<int>>(1001, now, []() { return 100; });
 		td.addTask(now, std::move(task1));
-		auto popped1 = td.popReadyTask();
+		auto popped1 = td.popTaskReadyForExecution();
 		ASSERT_TRUE(popped1);
 		(*popped1)();
 		td.markCompleted(1001, TaskState::Completed, popped1->getResult());
@@ -277,7 +277,7 @@ namespace TaskDataTests
 		// Add 2-nd task
 		auto task2 = std::make_unique<Task<int>>(1002, now, []() { return 200; });
 		td.addTask(now, std::move(task2));
-		auto popped2 = td.popReadyTask();
+		auto popped2 = td.popTaskReadyForExecution();
 		ASSERT_TRUE(popped2);
 		(*popped2)();
 		td.markCompleted(1002, TaskState::Completed, popped2->getResult());
@@ -300,6 +300,39 @@ namespace TaskDataTests
 
 		// Expect 2-st task is removed from completed tasks
 		EXPECT_EQ(td.getTaskState(1002), TaskState::Invalid);
+	}
+
+	TEST(TaskDataTests, MarkCompletedSchedulesCallable)
+	{
+		TaskData<std::function<void()>> td;
+		std::atomic<bool> called{ false };
+		auto now = std::chrono::steady_clock::now();
+		std::size_t id = 42;
+
+		// Add a task that returns a callable
+		td.addTask(now, std::make_unique<Task<std::function<void()>>>(id, now, [&called]() {
+			return std::function<void()>([&called]() { called.store(true); });
+			}));
+
+		auto popped = td.popTaskReadyForExecution();
+		ASSERT_TRUE(popped);
+
+		// Execute the task without ThreadPool, just to get the callable
+		(*popped)();
+
+		auto res = popped->getResult();
+		ASSERT_NE(res, nullptr);
+
+		// markCompleted schedule it as a new task
+		td.markCompleted(id, TaskState::Completed, std::move(res));
+		EXPECT_EQ(td.getTaskResult(id), nullptr); // or EXPECT_FALSE(td.getTaskResult(id));
+		
+		// The scheduled callable should be available later; pop and run it
+		auto scheduled = td.popTaskReadyForExecution();
+		ASSERT_TRUE(scheduled);
+		(*scheduled)();
+
+		EXPECT_TRUE(called.load());
 	}
 }
 
@@ -379,6 +412,30 @@ namespace ThreadPoolTests
 
 		EXPECT_TRUE(executed.load());
 		EXPECT_EQ(taskData->getTaskState(9), TaskState::Completed);
+	}
+
+	TEST(ThreadPoolTests, RunSchedulesCallableFromMarkCompleted)
+	{
+		auto taskData = std::make_shared<TaskData<std::function<void()>>>();
+		std::atomic<bool> called{ false };
+
+		// ThreadPool should pick up both the original task and the scheduled callable
+		ThreadPool<std::function<void()>> pool(taskData, 1);
+
+		auto now = std::chrono::steady_clock::now();
+		taskData->addTask(now, std::make_unique<Task<std::function<void()>>>(2201, now, [&called]() {
+			return std::function<void()>([&called]() { called.store(true); });
+			}));
+
+		auto start = std::chrono::steady_clock::now();
+		while (!called.load() && std::chrono::steady_clock::now() - start < std::chrono::seconds(2))
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		}
+
+		pool.shutdown();
+
+		EXPECT_TRUE(called.load());
 	}
 }
 
