@@ -18,8 +18,8 @@ taskId Timer<T>::generateTaskId() const
 
 template<typename T>
 Timer<T>::Timer(const std::size_t threadCount) 
-    : taskData_(std::make_shared<TaskData<T>>())
-    , threadPool_(std::make_unique<ThreadPool<T>>(taskData_, threadCount))
+    : taskManager_(std::make_shared<TaskManager<T>>())
+    , threadPool_(std::make_unique<ThreadPool<T>>(taskManager_, threadCount))
     , running_(true) 
 {}
 
@@ -29,26 +29,26 @@ taskId Timer<T>::addTask(std::function<T()> action, const std::chrono::steady_cl
     const auto id = generateTaskId();
     const auto time = getNextTaskTime(delay);
     auto newTaskPtr = std::make_unique<Task<T>>(id, time, std::move(action), TaskState::Pending);
-    taskData_->addTask(time, std::move(newTaskPtr));
+    taskManager_->addTask(time, std::move(newTaskPtr));
 	return id;
 }
 
 template<typename T>
 TaskState Timer<T>::getTaskState(const taskId id) const
 {
-    return taskData_->getTaskState(id);
+    return taskManager_->getTaskState(id);
 }
 
 template<typename T>
 std::unique_ptr<T> Timer<T>::getResult(const taskId id) const
 {
-    return taskData_->getTaskResult(id);
+    return taskManager_->getTaskResult(id);
 }
 
 template<typename T>
 bool Timer<T>::cancelTask(const taskId id)
 {
-    return taskData_->cancelTask(id);
+    return taskManager_->cancelTask(id);
 }
 
 template<typename T>

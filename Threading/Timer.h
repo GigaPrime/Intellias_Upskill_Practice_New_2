@@ -2,7 +2,7 @@
 
 #include "Task.h"
 #include "ThreadPool.h"
-#include "TaskData.h"
+#include "TaskManager.h"
 
 #include <map>
 #include <memory>
@@ -22,7 +22,7 @@ private:
 	std::mutex mutex_;
 	std::condition_variable condition_;
 
-	std::shared_ptr<TaskData<T>> taskData_;
+	TaskManager<T> taskManager_;
 	std::unique_ptr<ThreadPool<T>> threadPool_;
 
 	mutable std::atomic<taskId> nextId_{1};

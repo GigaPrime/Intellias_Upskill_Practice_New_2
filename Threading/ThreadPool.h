@@ -8,7 +8,7 @@
 #include <memory>
 
 #include "Task.h"
-#include "TaskData.h"
+#include "TaskManager.h"
 
 template <typename T>
 class ThreadPool
@@ -18,14 +18,14 @@ private:
 	std::mutex mutex_;
 	std::condition_variable condition_;
 
-	std::shared_ptr<TaskData<T>> taskData_;
+	std::shared_ptr<TaskManager<T>> taskManager_;
 
 	bool running_ = false;
 
 	void run();
 
 public:
-	explicit ThreadPool(std::shared_ptr<TaskData<T>> taskData, const std::size_t threadCount = 4);
+	explicit ThreadPool(std::shared_ptr<TaskManager<T>> taskManager, const std::size_t threadCount = 4);
 
 	~ThreadPool();
 

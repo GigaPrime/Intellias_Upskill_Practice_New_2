@@ -4,6 +4,28 @@
 #include <chrono>
 #include <memory>
 
+enum class OutcomeKind
+{
+	FinalResult,
+	Continuation
+};
+
+template <typename T>
+class TaskOutcome 
+{
+private:
+	using Action = std::function<TaskOutcome<T>()>;
+
+	OutcomeKind kind_;
+	std::unique_ptr<T> result_;
+	Action continuation_;
+	std::chrono::steady_clock::duration delay_;
+
+
+public:
+
+};
+
 // I assume the task should be absolutely unique, 
 // no copy constructors or assignment operators are allowed
 // I also assume the delay is a second-size value
@@ -13,12 +35,13 @@ enum class TaskState
 	Invalid, // No task with this ID exists
 	Pending,
 	Running,
+	Chained,
 	Completed,
 	Cancelled,
 	Failed
 };
 
-template<typename T>
+template <typename T>
 class Task 
 {
 private:

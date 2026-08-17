@@ -39,7 +39,7 @@ FetchContent_MakeAvailable(googletest)
 
 list(APPEND SOURCES "main.cpp" "TimerTests.cpp")
 
-add_executable(Threading ${SOURCES})
+add_executable(Threading ${SOURCES} "TaskManager.h" "TaskManager.cpp")
 target_link_libraries(Threading PRIVATE GTest::gtest)
 target_compile_features(Threading PRIVATE cxx_std_14)
 

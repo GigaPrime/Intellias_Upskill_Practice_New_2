@@ -8,26 +8,26 @@ void ThreadPool<T>::run()
 {
 	while (true)
 	{
-		if (!taskData_) return;
+		if (!taskManager_) return;
 
-		std::unique_ptr<Task<T>> task = taskData_->popTaskReadyForExecution();
+		std::unique_ptr<Task<T>> task = taskManager_->popTaskReadyForExecution();
 		if (!task) return;
 
 		try
 		{
 			(*task)();
-			taskData_->markCompleted(task->getId(), TaskState::Completed, task->getResult());
+			taskManager_->markCompleted(task->getId(), TaskState::Completed, task->getResult());
 		}
 		catch (...)
 		{
-			taskData_->markCompleted(task->getId(), TaskState::Failed);
+			taskManager_->markCompleted(task->getId(), TaskState::Failed);
 			std::cerr << "Exception caught in thread pool task" << std::endl;
 		}
 	}
 }
 
 template <typename T>
-ThreadPool<T>::ThreadPool(std::shared_ptr<TaskData<T>> taskData, const std::size_t threadCount) : taskData_(std::move(taskData)), running_(true)
+ThreadPool<T>::ThreadPool(std::shared_ptr<TaskManager<T>> taskData, const std::size_t threadCount) : taskManager_(std::move(taskData)), running_(true)
 {
 	threads_.reserve(threadCount);
 
@@ -51,9 +51,9 @@ void ThreadPool<T>::shutdown()
 		running_ = false;
 	}
 
-	if (taskData_)
+	if (taskManager_)
 	{
-		taskData_->shutdown();
+		taskManager_->shutdown();
 	}
 
 	// This is necessary for preventing threads to be terminated while the callables are still running there
