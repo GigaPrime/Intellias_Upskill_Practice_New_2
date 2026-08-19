@@ -25,6 +25,7 @@ private:
     void run();
 
     Buffer& buffer_;
+    const std::size_t retryCount_ = 5;
     std::chrono::milliseconds minDelay_;
     std::chrono::milliseconds maxDelay_;
     std::atomic<bool> running_{false};

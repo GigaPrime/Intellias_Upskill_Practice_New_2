@@ -71,15 +71,34 @@ void Producer::run()
         Message message("header-" + std::to_string(sequence % 1000000000), "payload-" + std::to_string(sequence));
         generatedCount_.fetch_add(1, std::memory_order_acq_rel);
 
-        if (buffer_.store(message)) // add retry logic
+        std::size_t retrys = 0;
+        bool stored = false;
+        while (retrys < retryCount_ && !stored) // retry logic
         {
-            producedCount_.fetch_add(1, std::memory_order_acq_rel);
-            generatedIds_.push_back(message.getId());
-        } 
-        else 
+            if (buffer_.acquire())
+            {
+                stored = buffer_.store(message);
+                ++retrys;
+                buffer_.release();
+            }
+            if (!stored)
+            {
+                std::this_thread::yield();
+            }
+        }
+
         {
-            droppedCount_.fetch_add(1, std::memory_order_acq_rel);
-            droppedIds_.push_back(message.getId());
+            std::lock_guard lock(mutex_);
+            if (stored)
+            {
+                producedCount_.fetch_add(1, std::memory_order_acq_rel);
+                generatedIds_.push_back(message.getId());
+            }
+            else
+            {
+                droppedCount_.fetch_add(1, std::memory_order_acq_rel);
+                droppedIds_.push_back(message.getId());
+            }
         }
 
         ++sequence;
